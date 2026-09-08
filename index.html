@@ -1,9 +1,36 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Map Domination Multiplayer</title><link rel="stylesheet" href="style.css"></head>
-<body><div id="joinScreen" class="screen"><div class="joinCard"><h1>WORLD MAP DOMINATION</h1><p>REAL-TIME MULTIPLAYER GRAND STRATEGY</p><input id="name" maxlength="24" placeholder="Your player name"><button id="create">Create Game</button><div class="or">OR</div><input id="roomCode" maxlength="5" placeholder="Room code"><button id="join">Join Game</button><div id="joinError"></div></div></div>
+<body>
+<div id="nameScreen" class="screen">
+  <div class="joinCard">
+    <h1>WORLD MAP DOMINATION</h1>
+    <p>ONLINE MULTIPLAYER GRAND STRATEGY</p>
+    <div class="nameStep">
+      <div class="stepNumber">1</div>
+      <h2>Choose your player name</h2>
+      <p class="help">This name will appear in the lobby, on turns, and in the game.</p>
+      <input id="playerName" maxlength="24" placeholder="Enter your player name" autocomplete="nickname">
+      <button id="continueName">Continue</button>
+      <div id="nameError"></div>
+    </div>
+  </div>
+</div>
+
+<div id="joinScreen" class="screen hidden">
+  <div class="joinCard">
+    <div class="playerBadge">PLAYING AS <b id="chosenName"></b> <button id="changeName" class="smallBtn">Change</button></div>
+    <h1>CHOOSE A GAME</h1>
+    <p>CREATE A NEW GAME OR JOIN YOUR FRIENDS</p>
+    <button id="create">Create Game</button>
+    <div class="or">OR</div>
+    <input id="roomCode" maxlength="5" placeholder="Room code">
+    <button id="join">Join Game</button>
+    <div id="joinError"></div>
+  </div>
+</div>
 <div id="lobby" class="screen hidden"><div class="joinCard"><h1 id="roomTitle">GAME LOBBY</h1><p id="roomText"></p><div id="playerList"></div><button id="start">Start Game</button></div></div>
-<div id="app" class="hidden"><aside id="side"><div><h1>WORLD MAP</h1><div class="sub">ONLINE MULTIPLAYER • GRAND STRATEGY</div></div>
+<div id="app" class="hidden"><aside id="side"><div><h1>WORLD MAP</h1><div class="sub">ONLINE MULTIPLAYER • GRAND STRATEGY</div><div id="youAre" class="youAre"></div></div>
 <div class="card prompt"><div class="k">YOUR REQUIRED ACTION</div><div id="command"></div><div id="detail"></div></div>
 <div class="card"><div id="turn"></div><div id="stats"></div></div>
 <div class="card"><div class="k">COMMAND CENTRE</div><button onclick="buy('infantry')">Buy 5 Infantry — 1 Gold</button><button onclick="modeSet('defence')">Buy Defence — 2 Gold</button><button onclick="buy('small')">Small Ship — 1 Gold</button><button onclick="buy('large')">Large Ship — 2 Gold</button><button onclick="modeSet('city1')">Small City — 8 Gold</button><button onclick="modeSet('city2')">Large City — 15 Gold</button><button onclick="attack()">⚔ Attack Selected Country</button><button onclick="endTurn()">End Turn</button></div>
