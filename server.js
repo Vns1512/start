@@ -6,9 +6,9 @@ const path = require("path");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname)));
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(path.join(__dirname, "index.html"));
 });
 const rooms = new Map();
 const COLORS = ["#ff5d73","#3b82f6","#22c55e","#fbbf24","#a855f7","#fb923c","#14b8a6","#ec4899"];
