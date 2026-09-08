@@ -47,7 +47,18 @@ function cmd(a,b){$("#command").textContent=a;$("#detail").textContent=b;$("#act
 function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();return}$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");let p=me(),c=current();$("#turn").textContent=`● ROUND ${state.round}\n${c?.name?.toUpperCase()||""}'S TURN`;if(p){
   $("#youAre").textContent=`YOU ARE: ${p.name.toUpperCase()}`;
   $("#stats").innerHTML=`You: <b>${p.name}</b><hr>Capital: ${p.capital||"Not chosen"}<br>Gold: ${p.gold}<br>Reserve infantry: ${p.reserve}<br>Ships: ${p.small} small, ${p.large} large<br>Attack used: ${p.attacked?"Yes":"No"}`;
-}$("#log").textContent=state.log.join("\n\n");let selected=state.selectedBy?.[myId];if(state.phase==="capital"){let chooser=state.players[state.capitalIndex];cmd(chooser?.id===myId?"CHOOSE YOUR CAPITAL":"WAIT FOR CAPITAL SELECTION",chooser?.id===myId?"Click a neutral country. USA, Russia and China are unavailable.":`${chooser?.name} is choosing a capital.`)}else if(c?.id===myId){if(selected){let t=state.territories[selected];cmd(`YOUR TURN — ${selected} SELECTED`,t.owner===p.name?"Choose a build command, another country, or end your turn.":"Choose Attack, or select another country.")}else cmd("YOUR TURN — CHOOSE AN ACTION","Click a country or use the Command Centre.")}else cmd(`WAIT — ${c?.name}'S TURN`,"You can watch the map, but only the active player can make moves.");draw()}
+}$("#log").textContent=state.log.join("\n\n");let selected=state.selectedBy?.[myId];if(state.phase==="capital"){
+  const chooser=state.players[state.capitalIndex];
+  const position=(state.capitalIndex ?? 0)+1;
+  const total=state.players.length;
+  if(!chooser){
+    cmd("SETTING UP CAPITAL SELECTION","Please wait while the game prepares the next player.");
+  }else if(chooser.id===myId){
+    cmd("YOUR TURN — CHOOSE YOUR CAPITAL",`You are player ${position} of ${total}. Click one neutral country on the map to make it your capital. USA, Russia and China cannot be chosen.`);
+  }else{
+    cmd(`WAIT — ${chooser.name.toUpperCase()} MUST CHOOSE A CAPITAL`,`${chooser.name} is player ${position} of ${total}. They must click a neutral country and choose their capital before the next player can act.`);
+  }
+}else if(c?.id===myId){if(selected){let t=state.territories[selected];cmd(`YOUR TURN — ${selected} SELECTED`,t.owner===p.name?"Choose a build command, another country, or end your turn.":"Choose Attack, or select another country.")}else cmd("YOUR TURN — YOU MUST MAKE A MOVE","Click one of your countries or a target country, use the Command Centre, or press End Turn when you are finished.")}else cmd(`WAIT — ${c?.name}'S TURN`,"You can watch the map, but only the active player can make moves.");draw()}
 function renderLobby(){$("#roomTitle").textContent=`ROOM ${state.code}`;$("#roomText").textContent=`Share this room code with friends. ${state.players.length}/8 players joined.`;$("#playerList").innerHTML=state.players.map((p,i)=>`<div class="card">${i+1}. ${p.name}${p.id===state.hostId?" — HOST":""}</div>`).join("");$("#start").style.display=state.hostId===myId?"block":"none";$("#start").disabled=state.players.length<2}
 function select(country){if(!state)return;if(state.phase==="capital")socket.emit("chooseCapital",{code:roomCode,country});else socket.emit("selectCountry",{code:roomCode,country})}
 function buy(type){socket.emit("buy",{code:roomCode,type})}function modeSet(m){mode=m;cmd(`BUILD ${m==="defence"?"DEFENCE":m==="city1"?"SMALL CITY":"LARGE CITY"}`,"Click one of your own countries.");}

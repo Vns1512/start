@@ -25,7 +25,8 @@ function code() {
 function roomView(room) {
   return {
     code: room.code, hostId: room.hostId, phase: room.phase,
-    round: room.round, current: room.current, players: room.players,
+    round: room.round, current: room.current, capitalIndex: room.capitalIndex ?? null,
+    players: room.players,
     territories: room.territories, selectedBy: room.selectedBy, log: room.log
   };
 }
