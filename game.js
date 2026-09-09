@@ -4,11 +4,10 @@ let socket=io(),state=null,roomCode=null,features=[],mode="normal",myId=null;
 const $=s=>document.querySelector(s);
 let playerName = localStorage.getItem("worldDominationPlayerName") || "";
 
-function showGameChoice(){
-  $("#chosenName").textContent = playerName;
-  $("#nameScreen").classList.add("hidden");
-  $("#joinScreen").classList.remove("hidden");
-}
+function showHome(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#homeScreen").classList.remove("hidden");}
+function showRules(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#rulesScreen").classList.remove("hidden");}
+function showName(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#nameScreen").classList.remove("hidden");$("#playerName").value=playerName;$("#playerName").focus();}
+function showGameChoice(){$("#chosenName").textContent=playerName;$("#nameScreen").classList.add("hidden");$("#joinScreen").classList.remove("hidden");}
 socket.on("connect",()=>{myId=socket.id});
 socket.on("errorMessage",m=>{$("#joinError").textContent=m; if(state) cmd("ACTION NOT AVAILABLE",m)});
 socket.on("joined",x=>{roomCode=x.code;$("#joinScreen").classList.add("hidden");$("#lobby").classList.remove("hidden")});
@@ -23,21 +22,24 @@ $("#continueName").onclick=()=>{
   showGameChoice();
 };
 $("#playerName").addEventListener("keydown",e=>{if(e.key==="Enter")$("#continueName").click()});
-$("#changeName").onclick=()=>{
-  $("#joinScreen").classList.add("hidden");
-  $("#nameScreen").classList.remove("hidden");
-  $("#playerName").value=playerName;
-  $("#playerName").focus();
-};
+$("#changeName").onclick=()=>showName();
 $("#create").onclick=()=>socket.emit("createRoom",{name:playerName});
 $("#join").onclick=()=>socket.emit("joinRoom",{name:playerName,code:$("#roomCode").value});
 
-if(playerName){
-  $("#playerName").value=playerName;
-  showGameChoice();
-}
+$("#play").onclick=()=>showName();
+$("#rules").onclick=()=>showRules();
+$("#backHome").onclick=()=>showHome();
+$("#nameBack").onclick=()=>showHome();
+$("#joinBack").onclick=()=>showHome();
+if(playerName)$("#playerName").value=playerName;
 $("#start").onclick=()=>socket.emit("startGame",{code:roomCode,territories:initialTerritories()});
-function canon(n){return alias[n]||n}function stat(n){return n==="China"?[110,3]:n==="Russia"?[130,3]:n==="USA"?[150,3]:[20,1]}
+function canon(n){return alias[n]||n}
+const TWO_GOLD={Canada:50,Mexico:40,Brazil:60,Argentina:40,UK:70,France:60,Spain:40,Germany:70,Italy:40,Nigeria:40,Egypt:40,"South Africa":40,"Saudi Arabia":40,Iran:40,Pakistan:50,India:70,"South Korea":40,Indonesia:40,Japan:50,Australia:50};
+const THREE_GOLD={China:[110,3],Russia:[130,3],USA:[150,3]};
+const THIRTY_INF=new Set(["Chile","Poland","Kazakhstan","Denmark"]);
+const TWENTY_INF=new Set(["Morocco","Mozambique","Algeria","Libya","Kenya","DRC","Madagascar","Angola","Netherlands","Belgium","Austria","Hungary","Belarus","Turkmenistan","Uzbekistan","Vietnam","Czech Republic","Serbia","Colombia","Venezuela","Finland"]);
+const TEN_INF=new Set(["Jamaica","Cuba","Haiti","Dominican Rep.","Bahamas","Panama","El Salvador","Honduras","Nicaragua","Costa Rica","Belize","Guatemala","Guyana","Suriname","Vanuatu","Fiji","Samoa","Solomon Is.","East Timor","Cape Verde","Tonga","Palau","Brunei","Cambodia","Tajikistan","Kyrgyzstan","Nepal","Sri Lanka","Bhutan","Bangladesh","Yemen","Syria","Jordan","Cyprus","Macedonia","Montenegro","Moldova","Albania","Slovenia","Slovakia","Luxembourg","Iceland","Estonia","Latvia","Lithuania","Azerbaijan","Georgia","Armenia","Bosnia Herzegovina","Maldives","Mauritius","Senegal","Mauritania","Benin","Niger","Togo","Ghana","Côte d'Ivoire","Guinea","Guinea-Bissau","Liberia","Sierra Leone","Burkina Faso","Central African Rep.","Congo","Gabon","Eq. Guinea","Zambia","Malawi","Burundi","Lesotho","Botswana","eSwatini","Gambia","Tunisia","Chad","Somalia","Djibouti","Uganda","Rwanda","S. Sudan"]);
+function stat(n){if(THREE_GOLD[n])return THREE_GOLD[n];if(TWO_GOLD[n])return [TWO_GOLD[n],2];if(THIRTY_INF.has(n))return [30,1];if(TWENTY_INF.has(n))return [20,1];if(TEN_INF.has(n))return [10,1];return [20,1]}
 function initialTerritories(){let o={};features.forEach(f=>{let n=canon(f.name),[i,g]=stat(n);o[n]={name:n,infantry:i,gold:g,owner:null,defences:0,city:0}});return o}
 async function load(){let b=Uint8Array.from(atob(DATA),x=>x.charCodeAt(0)),s=new DecompressionStream("gzip");features=JSON.parse(await new Response(new Blob([b]).stream().pipeThrough(s)).text());draw()}
 function me(){return state?.players.find(p=>p.id===myId)}function current(){return state?.players[state.current]}
@@ -54,7 +56,7 @@ function countryInfo(n){
 }
 function showTip(n,e){
   const tip=$("#tip"),i=countryInfo(n);
-  tip.innerHTML=`<div class="tip-name">${esc(n)}</div><div class="tip-grid"><span>Owned by</span><b>${esc(i.owner)}</b><span>Infantry</span><b>${i.infantry}</b><span>Gold</span><b>${i.gold}</b><span>Defences</span><b>${i.defence}</b><span>City</span><b>${esc(i.city)}</b></div>`;
+  tip.innerHTML=`<div class="tip-name">${esc(n)}</div><div class="tip-grid"><span>Owned by</span><b>${esc(i.owner)}</b><span>Infantry</span><b>${i.infantry}</b><span>Gold / turn</span><b>${i.gold}</b><span>Defences</span><b>${i.defence}</b><span>City</span><b>${esc(i.city)}</b></div>`;
   tip.style.display="block";
   moveTip(e);
 }

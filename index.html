@@ -2,34 +2,68 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>World Map Domination Multiplayer</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<div id="nameScreen" class="screen">
-  <div class="joinCard">
-    <h1>WORLD MAP DOMINATION</h1>
-    <p>ONLINE MULTIPLAYER GRAND STRATEGY</p>
-    <div class="nameStep">
-      <div class="stepNumber">1</div>
-      <h2>Choose your player name</h2>
-      <p class="help">This name will appear in the lobby, on turns, and in the game.</p>
-      <input id="playerName" maxlength="24" placeholder="Enter your player name" autocomplete="nickname">
-      <button id="continueName">Continue</button>
-      <div id="nameError"></div>
+<div id="homeScreen" class="screen homeScreen">
+  <div class="homeCard">
+    <div class="crest">WMDG</div>
+    <div class="eyebrow">WORLD MAP DOMINATION GAME</div>
+    <h1>WORLD MAP<br><span>DOMINATION</span></h1>
+    <p class="homeLead">Build your empire. Make alliances. Conquer the map.</p>
+    <div class="homeButtons">
+      <button id="play" class="primaryBtn">PLAY</button>
+      <button id="rules" class="secondaryBtn">VIEW RULES</button>
     </div>
+    <div class="homeNote">ONLINE MULTIPLAYER • 2–8 PLAYERS</div>
+  </div>
+</div>
+
+<div id="rulesScreen" class="screen hidden">
+  <div class="rulesCard">
+    <div class="eyebrow">QUICK REFERENCE</div>
+    <h1>CONDENSED RULES</h1>
+    <p class="rulesIntro">A shortened digital reference based on the WMDG Constitution.</p>
+    <div class="rulesGrid">
+      <div class="ruleBlock"><b>1. Start</b><span>Each player chooses one neutral country as their capital. USA, Russia and China cannot be capitals.</span></div>
+      <div class="ruleBlock"><b>2. Resources</b><span>Players start with 100 reserve infantry and 10 gold. Your capital gives 2 gold per turn.</span></div>
+      <div class="ruleBlock"><b>3. Gold</b><span>1 gold buys 5 infantry. Defences cost 2. Small ships cost 1; large ships cost 2. Small cities cost 8; large cities cost 15.</span></div>
+      <div class="ruleBlock"><b>4. Expansion</b><span>Attack one territory per turn, or end your turn without attacking. Bordering countries can be attacked directly.</span></div>
+      <div class="ruleBlock"><b>5. Ships</b><span>Ships let you reach non-bordering countries. The original Constitution states a 4,000-mile maximum.</span></div>
+      <div class="ruleBlock"><b>6. Combat</b><span>Combat is resolved in 10-infantry steps using a coin flip. Heads removes 10 from the defender; tails removes 10 from the attacker.</span></div>
+      <div class="ruleBlock"><b>7. Defences</b><span>Up to 3 per country. A defence is tested before normal combat: heads destroys it; tails stops the attack.</span></div>
+      <div class="ruleBlock"><b>8. Player wars</b><span>Player-versus-player attacks begin in round 10. A fallen capital eliminates that player and their remaining territories become neutral.</span></div>
+      <div class="ruleBlock"><b>9. Cities</b><span>Small cities generate 1 gold per turn; large cities generate 2. Cities remain when territory changes hands, subject to the Constitution's limits.</span></div>
+      <div class="ruleBlock"><b>10. Win</b><span>The last player remaining wins. Deals, peace treaties, sales and loans are part of the wider Constitution.</span></div>
+    </div>
+    <button id="backHome" class="secondaryBtn">BACK TO HOME</button>
+  </div>
+</div>
+
+<div id="nameScreen" class="screen hidden">
+  <div class="joinCard">
+    <div class="eyebrow">PLAYER SETUP</div>
+    <h1>CHOOSE YOUR NAME</h1>
+    <p>This name will appear in the lobby, on turns, and in the game.</p>
+    <input id="playerName" maxlength="24" placeholder="Enter your player name" autocomplete="nickname">
+    <button id="continueName" class="primaryBtn">CONTINUE</button>
+    <button id="nameBack" class="linkBtn">Back</button>
+    <div id="nameError"></div>
   </div>
 </div>
 
 <div id="joinScreen" class="screen hidden">
   <div class="joinCard">
     <div class="playerBadge">PLAYING AS <b id="chosenName"></b> <button id="changeName" class="smallBtn">Change</button></div>
+    <div class="eyebrow">MULTIPLAYER</div>
     <h1>CHOOSE A GAME</h1>
-    <p>CREATE A NEW GAME OR JOIN YOUR FRIENDS</p>
-    <button id="create">Create Game</button>
+    <p>CREATE A NEW GAME OR JOIN YOUR FRIENDS.</p>
+    <button id="create" class="primaryBtn">CREATE GAME</button>
     <div class="or">OR</div>
     <input id="roomCode" maxlength="5" placeholder="Room code">
-    <button id="join">Join Game</button>
+    <button id="join" class="secondaryBtn">JOIN GAME</button>
+    <button id="joinBack" class="linkBtn">Back to Home</button>
     <div id="joinError"></div>
   </div>
 </div>
-<div id="lobby" class="screen hidden"><div class="joinCard"><h1 id="roomTitle">GAME LOBBY</h1><p id="roomText"></p><div id="playerList"></div><button id="start">Start Game</button></div></div>
+<div id="lobby" class="screen hidden"><div class="joinCard"><div class="eyebrow">MULTIPLAYER LOBBY</div><h1 id="roomTitle">GAME LOBBY</h1><p id="roomText"></p><div id="playerList"></div><button id="start" class="primaryBtn">START GAME</button></div></div>
 <div id="app" class="hidden"><aside id="side"><div><h1>WORLD MAP</h1><div class="sub">ONLINE MULTIPLAYER • GRAND STRATEGY</div><div id="youAre" class="youAre"></div></div>
 <div class="card prompt"><div class="k">YOUR REQUIRED ACTION</div><div id="command"></div><div id="detail"></div></div>
 <div class="card"><div id="turn"></div><div id="stats"></div></div>
