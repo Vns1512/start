@@ -42,7 +42,47 @@ function initialTerritories(){let o={};features.forEach(f=>{let n=canon(f.name),
 async function load(){let b=Uint8Array.from(atob(DATA),x=>x.charCodeAt(0)),s=new DecompressionStream("gzip");features=JSON.parse(await new Response(new Blob([b]).stream().pipeThrough(s)).text());draw()}
 function me(){return state?.players.find(p=>p.id===myId)}function current(){return state?.players[state.current]}
 function proj(lon,lat){return[(lon+180)/360*1200,(85-lat)/143*700]}function rings(g){return g.type==="Polygon"?g.coordinates:g.coordinates.flat()}function path(g){return rings(g).map(r=>r.map((p,i)=>{let q=proj(...p);return(i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)}).join(" ")+"Z").join(" ")}
-function draw(){let map=$("#map");if(!features.length)return;map.innerHTML="";for(let l=-150;l<=180;l+=30){let[x]=proj(l,0);map.innerHTML+=`<line class="grid" x1="${x}" y1="0" x2="${x}" y2="700"/>`}for(let l=-45;l<=75;l+=30){let[,y]=proj(0,l);map.innerHTML+=`<line class="grid" x1="0" y1="${y}" x2="1200" y2="${y}"/>`}map.innerHTML+='<text class="title" x="20" y="28">GLOBAL COMMAND MAP</text>';features.forEach(f=>{let n=canon(f.name),t=state?.territories?.[n],p=state?.players.find(x=>x.name===t?.owner),e=document.createElementNS("http://www.w3.org/2000/svg","path");e.setAttribute("d",path(f.geometry));e.setAttribute("fill",p?p.color:NEUTRAL);e.setAttribute("class","country"+(state?.selectedBy?.[myId]===n?" selected":""));e.onclick=()=>select(n);map.append(e)})}
+function esc(v){return String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function countryInfo(n){
+  const t=state?.territories?.[n];
+  const owner=t?.owner || "Neutral";
+  const city=t?.city ? (t.city===2 ? "Large city" : "Small city") : "None";
+  const defence=t?.defences ?? 0;
+  const infantry=t?.infantry ?? stat(n)[0];
+  const gold=t?.gold ?? stat(n)[1];
+  return {owner,infantry,gold,defence,city};
+}
+function showTip(n,e){
+  const tip=$("#tip"),i=countryInfo(n);
+  tip.innerHTML=`<div class="tip-name">${esc(n)}</div><div class="tip-grid"><span>Owned by</span><b>${esc(i.owner)}</b><span>Infantry</span><b>${i.infantry}</b><span>Gold</span><b>${i.gold}</b><span>Defences</span><b>${i.defence}</b><span>City</span><b>${esc(i.city)}</b></div>`;
+  tip.style.display="block";
+  moveTip(e);
+}
+function moveTip(e){
+  const tip=$("#tip");if(tip.style.display!=="block")return;
+  const pad=14,w=tip.offsetWidth,h=tip.offsetHeight;
+  let x=e.clientX+18,y=e.clientY+18;
+  if(x+w>window.innerWidth-pad)x=e.clientX-w-18;
+  if(y+h>window.innerHeight-pad)y=e.clientY-h-18;
+  tip.style.left=Math.max(pad,x)+"px";tip.style.top=Math.max(pad,y)+"px";
+}
+function hideTip(){$("#tip").style.display="none"}
+function draw(){
+  let map=$("#map");if(!features.length)return;map.innerHTML="";
+  for(let l=-150;l<=180;l+=30){let[x]=proj(l,0);map.innerHTML+=`<line class="grid" x1="${x}" y1="0" x2="${x}" y2="700"/>`}
+  for(let l=-45;l<=75;l+=30){let[,y]=proj(0,l);map.innerHTML+=`<line class="grid" x1="0" y1="${y}" x2="1200" y2="${y}"/>`}
+  map.innerHTML+='<text class="title" x="20" y="28">GLOBAL COMMAND MAP</text>';
+  features.forEach(f=>{
+    let n=canon(f.name),t=state?.territories?.[n],p=state?.players.find(x=>x.name===t?.owner),e=document.createElementNS("http://www.w3.org/2000/svg","path");
+    e.setAttribute("d",path(f.geometry));e.setAttribute("fill",p?p.color:NEUTRAL);e.setAttribute("class","country"+(state?.selectedBy?.[myId]===n?" selected":""));
+    e.setAttribute("aria-label",n);
+    e.onclick=()=>select(n);
+    e.addEventListener("mouseenter",ev=>showTip(n,ev));
+    e.addEventListener("mousemove",moveTip);
+    e.addEventListener("mouseleave",hideTip);
+    map.append(e);
+  });
+}
 function cmd(a,b){$("#command").textContent=a;$("#detail").textContent=b;$("#actionCommand").textContent=a;$("#actionDetail").textContent=b}
 function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();return}$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");let p=me(),c=current();$("#turn").textContent=`● ROUND ${state.round}\n${c?.name?.toUpperCase()||""}'S TURN`;if(p){
   $("#youAre").textContent=`YOU ARE: ${p.name.toUpperCase()}`;
