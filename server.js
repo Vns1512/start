@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
 
 const rooms = new Map();
 const COLORS = ["#ff5d73","#3b82f6","#22c55e","#fbbf24","#a855f7","#fb923c","#14b8a6","#ec4899"];
-const RANGE = 5000;
+const RANGE = 4000;
 
 function code() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -27,7 +27,8 @@ function roomView(room) {
     code: room.code, hostId: room.hostId, phase: room.phase,
     round: room.round, current: room.current, capitalIndex: room.capitalIndex ?? null,
     players: room.players,
-    territories: room.territories, selectedBy: room.selectedBy, log: room.log
+    chat: room.chat || [],
+    territories: room.territories, selectedBy: room.selectedBy, log: room.log, singlePlayer: !!room.singlePlayer
   };
 }
 function addLog(room, text) {
@@ -70,8 +71,28 @@ function owned(room, p) {
   return Object.values(room.territories).filter(t => t.owner === p.name);
 }
 function income(room, p) {
-  return 2 + owned(room,p).reduce((s,t) => s + (t.name === p.capital ? 0 : t.gold + (t.city||0)), 0);
+  return 2 + owned(room,p).reduce((sum,t) => {
+    const cityIncome=(t.smallCities||0) + 2*(t.largeCities||0);
+    return sum + (t.name === p.capital ? cityIncome : t.gold + cityIncome);
+  }, 0);
 }
+function applyCityTransferQuota(room, newOwner, t) {
+  if (!newOwner || !t) return;
+  const p=room.players.find(x=>x.name===newOwner);
+  if (!p) return;
+  const quota=t.gold>=2?2:1;
+  let total=(t.smallCities||0)+(t.largeCities||0);
+  while (total>0 && Object.values(room.territories).reduce((sum,x)=>sum+(x.owner===newOwner?((x.smallCities||0)+(x.largeCities||0)):0),0)>10) {
+    if (t.largeCities>0) t.largeCities--; else t.smallCities--;
+    total--;
+  }
+  while ((t.smallCities||0)+(t.largeCities||0)>quota) {
+    if (t.largeCities>0) t.largeCities--; else t.smallCities--;
+    addLog(room, `${t.name} lost a city because its new owner already had the country's allowed city capacity.`);
+  }
+  t.city=(t.smallCities||0)+(t.largeCities||0);
+}
+
 function eliminateIfCapitalLost(room, oldOwner, country) {
   const p = room.players.find(x => x.name === oldOwner);
   if (p && p.capital === country) {
@@ -113,11 +134,17 @@ function continueCapital(room) {
 }
 function aiAttack(room,p) {
   if (p.attacked || p.reserve <= 0) return;
-  let targets = Object.values(room.territories).filter(t => t.owner !== p.name && t.name !== p.capital);
-  if (room.round < 10) targets = targets.filter(t => !t.owner);
+  const ownedNames = owned(room,p).map(t=>t.name);
+  let targets = [];
+  for (const from of ownedNames) {
+    for (const name of (room.adjacency?.[from]||[])) {
+      const t=room.territories[name];
+      if (t && t.owner!==p.name && (room.round>=10 || !t.owner)) targets.push(t);
+    }
+  }
+  targets = [...new Map(targets.map(t=>[t.name,t])).values()];
   if (!targets.length) return;
-  // Prefer nearby-looking countries by keeping the choice among a small random sample.
-  const target = randomItem(targets.slice().sort(() => Math.random()-0.5).slice(0, Math.min(8,targets.length)));
+  const target = randomItem(targets);
   p.attacked = true;
   if (target.defences > 0) {
     if (Math.random() < 0.5) target.defences--;
@@ -129,6 +156,7 @@ function aiAttack(room,p) {
   }
   if (target.infantry <= 0) {
     const old = target.owner; target.owner = p.name;
+    applyCityTransferQuota(room,p.name,target);
     addLog(room, `★ ${p.name} captured ${target.name}! ★`);
     if (old) eliminateIfCapitalLost(room,old,target.name);
   } else addLog(room, `${p.name}'s attack on ${target.name} failed.`);
@@ -165,8 +193,8 @@ io.on("connection", socket => {
     name = String(name||"Player").trim().slice(0,24) || "Player";
     const room = {
       code: code(), hostId: socket.id, phase: "lobby", round: 1, current: 0,
-      players: [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null}],
-      territories: {}, selectedBy: {}, log: ["Lobby created. Share the room code and wait for players."]
+      players: [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,smallCities:0,largeCities:0}],
+      territories: {}, selectedBy: {}, chat: [], log: ["Lobby created. Share the room code and wait for players."]
     };
     rooms.set(room.code, room);
     socket.join(room.code);
@@ -174,12 +202,12 @@ io.on("connection", socket => {
     broadcast(room);
   });
 
-  socket.on("createSinglePlayer", ({name, territories}) => {
+  socket.on("createSinglePlayer", ({name, territories, adjacency}) => {
     name = String(name||"Player").trim().slice(0,24) || "Player";
     const aiNames = ["Atlas AI","Europa AI","Orion AI","Titan AI"];
-    const players = [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,ai:false}];
+    const players = [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,smallCities:0,largeCities:0,ai:false}];
     aiNames.forEach((n,i)=>players.push({id:`ai-${i+1}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name:n,color:COLORS[i+1],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,ai:true}));
-    const room = {code:code(),hostId:socket.id,phase:"capital",round:1,current:0,capitalIndex:0,players,territories:territories||{},selectedBy:{},log:["Single-player campaign started. You are facing four AI commanders."],singlePlayer:true};
+    const room = {code:code(),hostId:socket.id,phase:"capital",round:1,current:0,capitalIndex:0,players,territories:territories||{},adjacency:adjacency||{},selectedBy:{},chat:[],log:["Single-player campaign started. You are facing four AI commanders."],singlePlayer:true};
     rooms.set(room.code,room); socket.join(room.code); socket.emit("joined",{code:room.code,single:true});
     broadcast(room);
   });
@@ -192,19 +220,20 @@ io.on("connection", socket => {
     name = String(name||"Player").trim().slice(0,24) || "Player";
     if (room.players.some(p => p.name.toLowerCase() === name.toLowerCase()))
       return socket.emit("errorMessage", "That player name is already in use.");
-    room.players.push({id:socket.id,name,color:COLORS[room.players.length],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null});
+    room.players.push({id:socket.id,name,color:COLORS[room.players.length],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,smallCities:0,largeCities:0});
     socket.join(room.code);
     socket.emit("joined", {code:room.code});
     addLog(room, `${name} joined the lobby.`);
     broadcast(room);
   });
 
-  socket.on("startGame", ({code, territories}) => {
+  socket.on("startGame", ({code, territories, adjacency}) => {
     const room = rooms.get(code);
     if (!room) return;
     if (room.hostId !== socket.id) return socket.emit("errorMessage","Only the host can start the game.");
     if (room.players.length < 2) return socket.emit("errorMessage","At least 2 players are required.");
     room.territories = territories || {};
+    room.adjacency = adjacency || {};
     room.phase = "capital";
     room.capitalIndex = 0;
     addLog(room, "Game started. Players are choosing capitals.");
@@ -260,9 +289,17 @@ io.on("connection", socket => {
       if (p.gold<2 || t.defences>=3) return socket.emit("errorMessage","Need 2 gold and fewer than 3 defences.");
       p.gold-=2; t.defences++; addLog(room,`${p.name} built a defence in ${country}.`);
     } else {
-      const cost=type==="city1"?8:15, size=type==="city1"?1:2;
-      if (p.gold<cost || t.city) return socket.emit("errorMessage","Not enough gold or a city already exists there.");
-      p.gold-=cost; t.city=size; addLog(room,`${p.name} built a ${size===1?"small":"large"} city in ${country}.`);
+      const cost=type==="city1"?8:15, key=type==="city1"?"smallCities":"largeCities";
+      const countryQuota=t.gold>=2?2:1;
+      const countryCityCount=(t.smallCities||0)+(t.largeCities||0);
+      const playerCityCount=Object.values(room.territories).reduce((sum,x)=>sum+(x.owner===p.name?(x[key]||0):0),0);
+      if (p.gold<cost) return socket.emit("errorMessage","Not enough gold.");
+      if (playerCityCount>=5) return socket.emit("errorMessage",`You can build a maximum of 5 ${type==="city1"?"small":"large"} cities.`);
+      if (countryCityCount>=countryQuota) return socket.emit("errorMessage","This country has reached its city limit under the Constitution.");
+      p.gold-=cost;
+      t[key]=(t[key]||0)+1;
+      t.city=(t.smallCities||0)+(t.largeCities||0);
+      addLog(room,`${p.name} built a ${type==="city1"?"small":"large"} city in ${country}.`);
     }
     broadcast(room);
   });
@@ -303,6 +340,18 @@ io.on("connection", socket => {
     if (!room) return;
     if (err) return socket.emit("errorMessage",err);
     endTurn(room); broadcast(room);
+  });
+
+  socket.on("chat", ({code,text}) => {
+    const room=rooms.get(String(code||""));
+    const p=room && player(room,socket.id);
+    if(!room || !p) return;
+    text=String(text||"").trim().slice(0,180);
+    if(!text) return;
+    const message={name:p.name,text,at:Date.now()};
+    room.chat=room.chat||[]; room.chat.push(message);
+    if(room.chat.length>100) room.chat.shift();
+    io.to(room.code).emit("chat",message);
   });
 
   socket.on("disconnect", () => {
