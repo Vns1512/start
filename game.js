@@ -10,9 +10,8 @@ function showName(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby
 function showGameChoice(){$("#chosenName").textContent=playerName;$("#nameScreen").classList.add("hidden");$("#joinScreen").classList.remove("hidden");}
 socket.on("connect",()=>{myId=socket.id});
 socket.on("errorMessage",m=>{$("#joinError").textContent=m; if(state) cmd("ACTION NOT AVAILABLE",m)});
-socket.on("joined",x=>{roomCode=x.code;$("#joinScreen").classList.add("hidden");$("#lobby").classList.remove("hidden")});
+socket.on("joined",x=>{roomCode=x.code;$("#joinScreen").classList.add("hidden");if(x.single){$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden")}else{$("#lobby").classList.remove("hidden")}});
 socket.on("state",s=>{state=s; renderState()});
-socket.on("chatMessage",m=>addChatMessage(m));
 
 $("#continueName").onclick=()=>{
   const entered=$("#playerName").value.trim();
@@ -25,6 +24,7 @@ $("#continueName").onclick=()=>{
 $("#playerName").addEventListener("keydown",e=>{if(e.key==="Enter")$("#continueName").click()});
 $("#changeName").onclick=()=>showName();
 $("#create").onclick=()=>socket.emit("createRoom",{name:playerName});
+$("#single").onclick=()=>{if(!features.length){cmd("LOADING MAP","Please wait a moment and try again.");return}socket.emit("createSinglePlayer",{name:playerName,territories:initialTerritories()})};
 $("#join").onclick=()=>socket.emit("joinRoom",{name:playerName,code:$("#roomCode").value});
 
 $("#play").onclick=()=>showName();
@@ -70,18 +70,6 @@ function moveTip(e){
   tip.style.left=Math.max(pad,x)+"px";tip.style.top=Math.max(pad,y)+"px";
 }
 function hideTip(){$("#tip").style.display="none"}
-function addChatMessage(m){
-  const box=$("#chatMessages"); if(!box)return;
-  const row=document.createElement("div"); row.className="chatMsg";
-  const name=document.createElement("b"); name.textContent=m.name+":"; name.style.color=m.color||"var(--accent)";
-  const text=document.createElement("span"); text.textContent=" "+m.message;
-  row.append(name,text); box.append(row); box.scrollTop=box.scrollHeight;
-}
-function sendChat(){
-  const input=$("#chatInput"), message=input.value.trim();
-  if(!message || !roomCode)return;
-  socket.emit("chatMessage",{code:roomCode,message}); input.value="";
-}
 function draw(){
   let map=$("#map");if(!features.length)return;map.innerHTML="";
   for(let l=-150;l<=180;l+=30){let[x]=proj(l,0);map.innerHTML+=`<line class="grid" x1="${x}" y1="0" x2="${x}" y2="700"/>`}
@@ -124,6 +112,5 @@ function dist(a,b){let[x1,y1]=centroid(a),[x2,y2]=centroid(b),p1=y1*Math.PI/180,
 function bbox(n){let p=points(n),xs=p.map(x=>x[0]),ys=p.map(x=>x[1]);return{minx:Math.min(...xs),maxx:Math.max(...xs),miny:Math.min(...ys),maxy:Math.max(...ys)}}
 function bordering(a,b){let A=bbox(a),B=bbox(b);return !(A.maxx+.35<B.minx||B.maxx+.35<A.minx||A.maxy+.35<B.miny||B.maxy+.35<A.miny)}
 function attackAccess(target){let p=me(),owned=Object.values(state.territories).filter(t=>t.owner===p.name);for(let t of owned)if(bordering(t.name,target))return{ok:true,kind:"border",text:`Bordering ${t.name}`};if(p.small+p.large<1)return{ok:false,text:"No bordering territory and no ships available."};let best=Infinity;for(let t of owned)best=Math.min(best,dist(t.name,target));return best<=RANGE?{ok:true,kind:"ship",distance:best,text:`Ship route: ${Math.round(best)} miles`}:{ok:false,text:`Closest route is ${Math.round(best)} miles. Ships can travel only 5,000 miles.`}}
-$("#chatForm").addEventListener("submit",e=>{e.preventDefault();sendChat()});
 $("#map").addEventListener("click",()=>{if(["defence","city1","city2"].includes(mode)){let c=state.selectedBy?.[myId];if(c){socket.emit("build",{code:roomCode,type:mode,country:c});mode="normal"}}});
 load();

@@ -64,6 +64,7 @@ function endTurn(room) {
     loops++;
   } while (room.players[room.current].alive === false && loops <= room.players.length);
   addLog(room, `— Round ${room.round}: ${currentPlayer(room).name}'s turn. —`);
+  runAI(room);
 }
 function owned(room, p) {
   return Object.values(room.territories).filter(t => t.owner === p.name);
@@ -81,6 +82,84 @@ function eliminateIfCapitalLost(room, oldOwner, country) {
   }
 }
 
+
+function aiPlayers() { return true; }
+function isAI(p) { return !!p && p.ai === true; }
+function randomItem(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function chooseAICapital(room, p) {
+  const choices = Object.values(room.territories).filter(t => !t.owner && !["USA","Russia","China"].includes(t.name));
+  if (!choices.length) return;
+  const t = randomItem(choices);
+  t.owner = p.name; t.infantry = 100; p.capital = t.name;
+  addLog(room, `${p.name} chose ${t.name} as their capital.`);
+}
+function finishCapitalIfReady(room) {
+  if (room.capitalIndex >= room.players.length) {
+    room.phase = "playing"; room.current = 0;
+    addLog(room, `${room.players[0].name}'s turn begins.`);
+    broadcast(room);
+    return true;
+  }
+  return false;
+}
+function continueCapital(room) {
+  while (room.phase === "capital" && room.capitalIndex < room.players.length) {
+    const p = room.players[room.capitalIndex];
+    if (!isAI(p)) break;
+    chooseAICapital(room,p);
+    room.capitalIndex++;
+  }
+  finishCapitalIfReady(room);
+}
+function aiAttack(room,p) {
+  if (p.attacked || p.reserve <= 0) return;
+  let targets = Object.values(room.territories).filter(t => t.owner !== p.name && t.name !== p.capital);
+  if (room.round < 10) targets = targets.filter(t => !t.owner);
+  if (!targets.length) return;
+  // Prefer nearby-looking countries by keeping the choice among a small random sample.
+  const target = randomItem(targets.slice().sort(() => Math.random()-0.5).slice(0, Math.min(8,targets.length)));
+  p.attacked = true;
+  if (target.defences > 0) {
+    if (Math.random() < 0.5) target.defences--;
+    else { addLog(room, `TAILS — ${target.name}'s defence held against ${p.name}.`); return; }
+  }
+  while (p.reserve > 0 && target.infantry > 0) {
+    if (Math.random() < 0.5) target.infantry = Math.max(0,target.infantry-10);
+    else p.reserve = Math.max(0,p.reserve-10);
+  }
+  if (target.infantry <= 0) {
+    const old = target.owner; target.owner = p.name;
+    addLog(room, `★ ${p.name} captured ${target.name}! ★`);
+    if (old) eliminateIfCapitalLost(room,old,target.name);
+  } else addLog(room, `${p.name}'s attack on ${target.name} failed.`);
+}
+function aiAction(room,p) {
+  if (!p || !p.alive) return;
+  // Spend some income on reinforcements and capital/territory defence.
+  if (p.gold >= 2 && Math.random() < 0.65) {
+    p.gold -= 2;
+    const own = owned(room,p);
+    if (own.length) { const fort = randomItem(own); fort.defences = Math.min(3, fort.defences + 1); }
+    addLog(room, `${p.name} strengthened its defences.`);
+  } else if (p.gold >= 1 && Math.random() < 0.8) {
+    p.gold -= 1; p.reserve += 5;
+    addLog(room, `${p.name} bought 5 infantry.`);
+  }
+  aiAttack(room,p);
+}
+function runAI(room) {
+  if (!room || !room.singlePlayer || room.phase !== "playing") return;
+  const p = currentPlayer(room);
+  if (!isAI(p)) return;
+  setTimeout(() => {
+    if (!rooms.has(room.code) || room.phase !== "playing" || currentPlayer(room) !== p || !p.alive) return;
+    aiAction(room,p);
+    endTurn(room);
+    broadcast(room);
+    runAI(room);
+  }, 700);
+}
+
 io.on("connection", socket => {
   socket.on("createRoom", ({name}) => {
     name = String(name||"Player").trim().slice(0,24) || "Player";
@@ -92,6 +171,16 @@ io.on("connection", socket => {
     rooms.set(room.code, room);
     socket.join(room.code);
     socket.emit("joined", {code:room.code});
+    broadcast(room);
+  });
+
+  socket.on("createSinglePlayer", ({name, territories}) => {
+    name = String(name||"Player").trim().slice(0,24) || "Player";
+    const aiNames = ["Atlas AI","Europa AI","Orion AI","Titan AI"];
+    const players = [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,ai:false}];
+    aiNames.forEach((n,i)=>players.push({id:`ai-${i+1}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name:n,color:COLORS[i+1],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,ai:true}));
+    const room = {code:code(),hostId:socket.id,phase:"capital",round:1,current:0,capitalIndex:0,players,territories:territories||{},selectedBy:{},log:["Single-player campaign started. You are facing four AI commanders."],singlePlayer:true};
+    rooms.set(room.code,room); socket.join(room.code); socket.emit("joined",{code:room.code,single:true});
     broadcast(room);
   });
 
@@ -132,21 +221,12 @@ io.on("connection", socket => {
     t.owner = p.name; t.infantry = 100; p.capital = country;
     addLog(room, `${p.name} chose ${country} as their capital.`);
     room.capitalIndex++;
-    if (room.capitalIndex >= room.players.length) {
+    if (room.singlePlayer) continueCapital(room);
+    else if (room.capitalIndex >= room.players.length) {
       room.phase = "playing"; room.current = 0;
       addLog(room, `${room.players[0].name}'s turn begins.`);
     }
     broadcast(room);
-  });
-
-  socket.on("chatMessage", ({code,message}) => {
-    const room = rooms.get(code);
-    if (!room) return;
-    const p = player(room, socket.id);
-    if (!p) return;
-    message = String(message || "").trim().slice(0,180);
-    if (!message) return;
-    io.to(room.code).emit("chatMessage", {name:p.name, color:p.color, message, time:Date.now()});
   });
 
   socket.on("selectCountry", ({code,country}) => {

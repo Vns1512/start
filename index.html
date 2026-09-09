@@ -55,20 +55,21 @@
     <div class="eyebrow">MULTIPLAYER</div>
     <h1>CHOOSE A GAME</h1>
     <p>CREATE A NEW GAME OR JOIN YOUR FRIENDS.</p>
-    <button id="create" class="primaryBtn">CREATE GAME</button>
-    <div class="or">OR</div>
+    <button id="create" class="primaryBtn">CREATE ONLINE GAME</button>
+    <button id="single" class="secondaryBtn">SINGLE PLAYER — VS 4 AI</button>
+    <div class="or">OR JOIN A FRIEND</div>
     <input id="roomCode" maxlength="5" placeholder="Room code">
     <button id="join" class="secondaryBtn">JOIN GAME</button>
     <button id="joinBack" class="linkBtn">Back to Home</button>
     <div id="joinError"></div>
   </div>
 </div>
-<div id="lobby" class="screen hidden"><div class="joinCard"><div class="eyebrow">MULTIPLAYER LOBBY</div><h1 id="roomTitle">GAME LOBBY</h1><p id="roomText"></p><div id="playerList"></div><button id="start" class="primaryBtn">START GAME</button></div></div>
+<div id="lobby" class="screen hidden"><div class="joinCard"><div class="eyebrow" id="lobbyEyebrow">MULTIPLAYER LOBBY</div><h1 id="roomTitle">GAME LOBBY</h1><p id="roomText"></p><div id="playerList"></div><button id="start" class="primaryBtn">START GAME</button></div></div>
 <div id="app" class="hidden"><aside id="side"><div><h1>WORLD MAP</h1><div class="sub">ONLINE MULTIPLAYER • GRAND STRATEGY</div><div id="youAre" class="youAre"></div></div>
 <div class="card prompt"><div class="k">YOUR REQUIRED ACTION</div><div id="command"></div><div id="detail"></div></div>
 <div class="card"><div id="turn"></div><div id="stats"></div></div>
 <div class="card"><div class="k">COMMAND CENTRE</div><button onclick="buy('infantry')">Buy 5 Infantry — 1 Gold</button><button onclick="modeSet('defence')">Buy Defence — 2 Gold</button><button onclick="buy('small')">Small Ship — 1 Gold</button><button onclick="buy('large')">Large Ship — 2 Gold</button><button onclick="modeSet('city1')">Small City — 8 Gold</button><button onclick="modeSet('city2')">Large City — 15 Gold</button><button onclick="attack()">⚔ Attack Selected Country</button><button onclick="endTurn()">End Turn</button></div>
 <div class="card"><div class="k">LIVE BATTLE LOG</div><div id="log"></div></div></aside>
 <main id="mapbox"><svg id="map" viewBox="0 0 1200 700"></svg></main>
-<section id="actionbox"><div class="card chatCard"><div class="k">PLAYER CHAT</div><div id="chatMessages"></div><form id="chatForm"><input id="chatInput" maxlength="180" placeholder="Type a message..." autocomplete="off"><button type="submit">SEND</button></form></div><div class="big-prompt"><div class="prompt-title">PLAYER ACTION REQUIRED</div><div class="big-command" id="actionCommand"></div><div class="big-detail" id="actionDetail"></div></div><div class="steps"><b>ONLINE TURN GUIDE</b><br>Wait for your turn.<br>Read the action prompt.<br>Click a country or command.<br>All players see moves live.</div></section></div>
+<section id="actionbox"><div class="big-prompt"><div class="prompt-title">PLAYER ACTION REQUIRED</div><div class="big-command" id="actionCommand"></div><div class="big-detail" id="actionDetail"></div></div><div class="steps"><b>TURN GUIDE</b><br>Wait for your turn.<br>Read the action prompt.<br>Click a country or command.<br>In single player, four AI commanders take their turns automatically.</div></section></div>
 <div id="tip"></div><script src="/socket.io/socket.io.js"></script><script src="game.js"></script></body></html>

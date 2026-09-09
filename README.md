@@ -20,3 +20,8 @@ Deploy the project to a Node.js host that supports WebSockets, such as Render. U
 
 ## Country values
 The Constitution explicitly lists 2-golders, 3-golders, and confirmed 30/20/10-infantry countries. Countries whose infantry status is described as debated in the Constitution use 20 infantry in the digital version as a neutral midpoint; the Constitution itself does not assign them one definitive value.
+
+
+## Single-player mode
+
+Choose **SINGLE PLAYER — VS 4 AI** from the game setup to start a five-player campaign with you plus four computer-controlled commanders. AI players automatically choose capitals, manage resources, defend territories, attack neutral countries early, and fight other players from round 10 onward.
