@@ -139,6 +139,16 @@ io.on("connection", socket => {
     broadcast(room);
   });
 
+  socket.on("chatMessage", ({code,message}) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const p = player(room, socket.id);
+    if (!p) return;
+    message = String(message || "").trim().slice(0,180);
+    if (!message) return;
+    io.to(room.code).emit("chatMessage", {name:p.name, color:p.color, message, time:Date.now()});
+  });
+
   socket.on("selectCountry", ({code,country}) => {
     const room = rooms.get(code);
     if (!room || !room.territories[country]) return;
