@@ -4,6 +4,29 @@ let socket=io(),state=null,roomCode=null,features=[],mode="normal",myId=null;
 const $=s=>document.querySelector(s);
 let playerName = localStorage.getItem("worldDominationPlayerName") || "";
 
+async function recordVisit(){
+  try {
+    const key="worldDominationVisitRecorded";
+    if(!sessionStorage.getItem(key)){
+      const r=await fetch("/api/visit",{cache:"no-store"});
+      const s=await r.json();
+      sessionStorage.setItem(key,"1");
+      updateSiteStats(s);
+    } else {
+      const r=await fetch("/api/stats",{cache:"no-store"});
+      updateSiteStats(await r.json());
+    }
+  } catch(e) {}
+}
+function updateSiteStats(s){
+  const el=$("#siteStats");
+  if(el && s) el.textContent=`👥 Online: ${s.online}  •  👀 Visits: ${s.totalVisits}`;
+}
+recordVisit();
+setInterval(async()=>{
+  try{const r=await fetch("/api/stats",{cache:"no-store"}); updateSiteStats(await r.json())}catch(e){}
+},10000);
+
 function showGameChoice(){
   $("#chosenName").textContent = playerName;
   $("#nameScreen").classList.add("hidden");

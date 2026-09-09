@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>World Map Domination — Stats</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body{min-height:100vh;display:grid;place-items:center;padding:24px}
+  .statsCard{width:min(760px,100%);padding:32px;border:1px solid rgba(148,163,184,.25);border-radius:24px;background:rgba(15,23,42,.88);box-shadow:0 24px 70px rgba(0,0,0,.35)}
+  .statsCard h1{margin:0 0 8px;font-size:30px}
+  .statsCard p{color:#94a3b8;margin:0 0 24px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .stat{padding:22px;border-radius:18px;background:rgba(30,41,59,.75);border:1px solid rgba(148,163,184,.16)}
+  .label{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8}
+  .value{font-size:34px;font-weight:800;margin-top:8px}
+  .updated{margin-top:20px;color:#64748b;font-size:13px}
+  @media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="statsCard">
+  <h1>WORLD MAP DOMINATION — STATS</h1>
+  <p>Live site activity from your multiplayer server.</p>
+  <div class="grid">
+    <div class="stat"><div class="label">Currently online</div><div class="value" id="online">—</div></div>
+    <div class="stat"><div class="label">Total visits</div><div class="value" id="total">—</div></div>
+    <div class="stat"><div class="label">Visits today</div><div class="value" id="today">—</div></div>
+    <div class="stat"><div class="label">Last visit</div><div class="value" id="last" style="font-size:20px">—</div></div>
+  </div>
+  <div class="updated" id="updated">Updating automatically…</div>
+</div>
+<script>
+async function update(){
+  try{
+    const r=await fetch('/api/stats',{cache:'no-store'}),s=await r.json();
+    document.getElementById('online').textContent=s.online;
+    document.getElementById('total').textContent=s.totalVisits;
+    document.getElementById('today').textContent=s.todayVisits;
+    document.getElementById('last').textContent=s.lastVisit ? new Date(s.lastVisit).toLocaleString() : 'None yet';
+    document.getElementById('updated').textContent='Updated '+new Date().toLocaleTimeString();
+  }catch(e){document.getElementById('updated').textContent='Could not load stats.';}
+}
+update();setInterval(update,5000);
+</script>
+</body>
+</html>

@@ -13,6 +13,41 @@ app.get("/", (req, res) => {
 });
 
 const rooms = new Map();
+
+// Simple built-in site statistics. These live in server memory, so they reset if Render restarts/redeploys.
+let totalVisits = 0;
+const dailyVisits = new Map();
+let lastVisit = null;
+
+function dayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+app.get("/api/visit", (req, res) => {
+  totalVisits++;
+  const day = dayKey();
+  dailyVisits.set(day, (dailyVisits.get(day) || 0) + 1);
+  lastVisit = new Date().toISOString();
+  res.json({
+    totalVisits,
+    todayVisits: dailyVisits.get(day),
+    online: io.engine.clientsCount,
+    lastVisit
+  });
+});
+
+app.get("/api/stats", (req, res) => {
+  res.json({
+    totalVisits,
+    todayVisits: dailyVisits.get(dayKey()) || 0,
+    online: io.engine.clientsCount,
+    lastVisit
+  });
+});
+
+app.get("/stats", (req, res) => {
+  res.sendFile(path.join(__dirname, "stats.html"));
+});
 const COLORS = ["#ff5d73","#3b82f6","#22c55e","#fbbf24","#a855f7","#fb923c","#14b8a6","#ec4899"];
 const RANGE = 5000;
 
