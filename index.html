@@ -80,5 +80,13 @@
 <div class="card"><div class="k">COMMAND CENTRE</div><button onclick="buy('infantry')">Buy 5 Infantry — 1 Gold</button><button onclick="modeSet('defence')">Buy Defence — 2 Gold</button><button onclick="buy('small')">Small Ship — 1 Gold</button><button onclick="buy('large')">Large Ship — 2 Gold</button><button onclick="modeSet('city1')">Small City — 8 Gold</button><button onclick="modeSet('city2')">Large City — 15 Gold</button><button onclick="attack()">⚔ Attack Selected Country</button><button onclick="endTurn()">End Turn</button></div>
 <div class="card"><div class="k">LIVE BATTLE LOG</div><div id="log"></div></div></aside>
 <main id="mapbox"><svg id="map" viewBox="0 0 1200 700"></svg></main>
+<section id="mapInfo" class="mapInfo">
+  <div class="mapInfoHead"><div><div class="k">STRATEGIC OVERVIEW</div><h2 id="selectedBriefTitle">MAP INTELLIGENCE</h2></div><div id="globalStatus" class="globalStatus"></div></div>
+  <div class="mapInfoGrid">
+    <div class="intelCard"><div class="intelLabel">SELECTED COUNTRY</div><div id="selectedBrief">Click a country on the map to see its owner, infantry, economy, defences and cities.</div></div>
+    <div class="intelCard"><div class="intelLabel">YOUR STRATEGIC POSITION</div><div id="strategyBrief">Your empire statistics and the best immediate objective will appear here.</div></div>
+    <div class="intelCard"><div class="intelLabel">NEXT STEP</div><div id="nextStep">Follow the action prompt above, then use the map to plan your move.</div></div>
+  </div>
+</section>
 <section id="actionbox"><div class="big-prompt"><div class="prompt-title">PLAYER ACTION REQUIRED</div><div class="big-command" id="actionCommand"></div><div class="big-detail" id="actionDetail"></div></div><div class="card"><div class="k">OTHER PLAYERS</div><div id="otherPlayers"></div></div><div class="card chatCard"><div class="k">PLAYER CHAT</div><div id="chatMessages"></div><div class="chatRow"><input id="chatInput" maxlength="180" placeholder="Message players..." autocomplete="off"><button id="chatSend">SEND</button></div></div><div class="steps"><b>TURN GUIDE</b><br>Wait for your turn.<br>Read the action prompt.<br>Click a country or command.<br>In single player, four AI commanders take their turns automatically.</div></section></div>
 <div id="tip"></div><script src="/socket.io/socket.io.js"></script><script src="game.js"></script></body></html>

@@ -98,7 +98,7 @@ function cmd(a,b){$("#command").textContent=a;$("#detail").textContent=b;$("#act
 function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();return}$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");let p=me(),c=current();$("#turn").textContent=`● ROUND ${state.round}\n${c?.name?.toUpperCase()||""}'S TURN`;if(p){
   $("#youAre").textContent=`YOU ARE: ${p.name.toUpperCase()}`;
   $("#stats").innerHTML=`You: <b>${p.name}</b><hr>Capital: ${p.capital||"Not chosen"}<br>Gold: ${p.gold}<br>Reserve infantry: ${p.reserve}<br>Ships: ${p.small} small, ${p.large} large<br>Attack used: ${p.attacked?"Yes":"No"}`;
-}$("#log").textContent=state.log.join("\n\n");renderOtherPlayers();renderChat();let selected=state.selectedBy?.[myId];if(state.phase==="capital"){
+}$("#log").textContent=state.log.join("\n\n");renderOtherPlayers();renderChat();renderMapIntel();let selected=state.selectedBy?.[myId];if(state.phase==="capital"){
   const chooser=state.players[state.capitalIndex];
   const position=(state.capitalIndex ?? 0)+1;
   const total=state.players.length;
@@ -110,6 +110,28 @@ function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();
     cmd(`WAIT — ${chooser.name.toUpperCase()} MUST CHOOSE A CAPITAL`,`${chooser.name} is player ${position} of ${total}. They must click a neutral country and choose their capital before the next player can act.`);
   }
 }else if(c?.id===myId){if(selected){let t=state.territories[selected];cmd(`YOUR TURN — ${selected} SELECTED`,t.owner===p.name?"This is your territory. Choose a build command, select a different target, or end your turn.":(state.round<10&&t.owner?`You cannot attack ${selected} yet because it belongs to ${t.owner}. Player wars unlock at round 10.`:`Check the target's route, then choose Attack. You may attack only once per turn.`))}else cmd("YOUR TURN — YOU MUST MAKE A MOVE","Click one of your countries or a target country, use the Command Centre, or press End Turn when you are finished.")}else cmd(`WAIT — ${c?.name}'S TURN`,"You can watch the map, but only the active player can make moves.");draw()}
+function renderMapIntel(){
+  if(!state)return;
+  const selected=state.selectedBy?.[myId];
+  const title=$("#selectedBriefTitle"),brief=$("#selectedBrief"),strategy=$("#strategyBrief"),next=$("#nextStep"),global=$("#globalStatus");
+  const p=me(); const territories=Object.values(state.territories||{}); const mine=p?territories.filter(t=>t.owner===p.name):[];
+  const countries=mine.length, inf=mine.reduce((n,t)=>n+(t.infantry||0),0);
+  const live=state.players.filter(x=>x.alive!==false).length;
+  global.textContent=`ROUND ${state.round} • ${live} EMPIRES ACTIVE • ${territories.filter(t=>!t.owner).length} NEUTRAL COUNTRIES`;
+  if(selected&&state.territories[selected]){
+    const t=state.territories[selected]; title.textContent=selected.toUpperCase();
+    brief.innerHTML=`Owned by <b>${esc(t.owner||"Neutral")}</b> • <b>${t.infantry||0}</b> infantry • <b>${t.gold||0}</b> gold/turn • <b>${t.defence||0}/3</b> defences • <b>${esc(t.city||"No city")}</b>`;
+    if(t.owner===p?.name) strategy.innerHTML=`This is yours. You control <b>${countries}</b> countries with <b>${inf}</b> infantry. Consider reinforcing, building, or using it as an attack route.`;
+    else if(!t.owner) strategy.innerHTML=`Neutral target. Check whether it borders one of your territories or whether you need a ship. You may attack only once per turn.`;
+    else strategy.innerHTML=`Enemy territory held by <b>${esc(t.owner)}</b>. Player wars unlock from round 10, and the target's defences must be cleared before normal combat continues.`;
+    next.textContent=t.owner===p?.name?"Choose a build action or select another country to plan your attack.":"Check the move requirements shown above before pressing Attack.";
+  }else{
+    title.textContent="MAP INTELLIGENCE";
+    brief.textContent="Click a country on the map to inspect it. The panel will show ownership, troops, economy, defences and cities.";
+    strategy.innerHTML=p?`You control <b>${countries}</b> countries with <b>${inf}</b> infantry. ${p.capital?`Capital: <b>${esc(p.capital)}</b>.`:"Choose your capital first."}`:"Join the game to see your strategic position.";
+    next.textContent=state.phase==="capital"?"Choose a legal capital when it is your turn.":state.players[state.turnIndex]?.id===myId?"Select a target or use the Command Centre to make your move.":"Watch the active player and plan your next move.";
+  }
+}
 function renderOtherPlayers(){const box=$("#otherPlayers");if(!box||!state)return;const mine=me();box.innerHTML=state.players.filter(x=>x.id!==myId).map(p=>{const countries=Object.values(state.territories||{}).filter(t=>t.owner===p.name).length;const inf=countries?Object.values(state.territories||{}).filter(t=>t.owner===p.name).reduce((n,t)=>n+(t.infantry||0),0):0;return `<div class="otherPlayer ${p.alive===false?"eliminated":""}"><div class="otherHead"><span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b>${p.ai?'<span class="aiTag">AI</span>':''}</div><div class="otherStats"><span>${countries} countries</span><span>${inf} infantry</span><span>${p.gold} gold</span></div><div class="otherCapital">Capital: ${esc(p.capital||"Not chosen")}</div></div>`}).join("")||'<div class="emptyPlayers">No other players yet.</div>'}function renderLobby(){$("#roomTitle").textContent=`ROOM ${state.code}`;$("#roomText").textContent=`Share this room code with friends. ${state.players.length}/8 players joined.`;$("#playerList").innerHTML=state.players.map((p,i)=>`<div class="card">${i+1}. ${p.name}${p.id===state.hostId?" — HOST":""}</div>`).join("");$("#start").style.display=state.hostId===myId?"block":"none";$("#start").disabled=state.players.length<2}
 function select(country){if(!state)return;if(state.phase==="capital")socket.emit("chooseCapital",{code:roomCode,country});else socket.emit("selectCountry",{code:roomCode,country})}
 function buy(type){socket.emit("buy",{code:roomCode,type})}function modeSet(m){mode=m;cmd(`BUILD ${m==="defence"?"DEFENCE":m==="city1"?"SMALL CITY":"LARGE CITY"}`,"Click one of your own countries.");}
