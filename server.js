@@ -146,9 +146,14 @@ function aiAttack(room,p) {
   if (!targets.length) return;
   const target = randomItem(targets);
   p.attacked = true;
-  if (target.defences > 0) {
-    if (Math.random() < 0.5) target.defences--;
-    else { addLog(room, `TAILS — ${target.name}'s defence held against ${p.name}.`); return; }
+  while (target.defences > 0) {
+    if (Math.random() < 0.5) {
+      target.defences--;
+      addLog(room, `HEADS — ${target.name}'s defence was destroyed.`);
+    } else {
+      addLog(room, `TAILS — ${target.name}'s defence held against ${p.name}. Attack ended.`);
+      return;
+    }
   }
   while (p.reserve > 0 && target.infantry > 0) {
     if (Math.random() < 0.5) target.infantry = Math.max(0,target.infantry-10);
@@ -244,9 +249,11 @@ io.on("connection", socket => {
     const room = rooms.get(code);
     if (!room || room.phase !== "capital") return;
     const p = room.players[room.capitalIndex];
-    if (!p || p.id !== socket.id) return socket.emit("errorMessage","It is not your turn to choose a capital.");
+    if (!p || p.id !== socket.id) return socket.emit("errorMessage","You cannot choose a capital yet because it is another player's capital-selection turn.");
     const t = room.territories[country];
-    if (!t || t.owner || ["USA","Russia","China"].includes(country)) return socket.emit("errorMessage","That country cannot be chosen as a capital.");
+    if (!t) return socket.emit("errorMessage","That location is not a playable country on this map.");
+    if (t.owner) return socket.emit("errorMessage",`${country} is already controlled by ${t.owner}, so you must choose a neutral country.`);
+    if (["USA","Russia","China"].includes(country)) return socket.emit("errorMessage",`${country} is a 3-golder and cannot be selected as a starting capital.`);
     t.owner = p.name; t.infantry = 100; p.capital = country;
     addLog(room, `${p.name} chose ${country} as their capital.`);
     room.capitalIndex++;
@@ -271,7 +278,8 @@ io.on("connection", socket => {
     if (err) return socket.emit("errorMessage",err);
     const p = currentPlayer(room);
     const costs = {infantry:1,small:1,large:2};
-    if (!(type in costs) || p.gold < costs[type]) return socket.emit("errorMessage","Not enough gold.");
+    if (!(type in costs)) return socket.emit("errorMessage","That purchase is not a valid Command Centre option.");
+    if (p.gold < costs[type]) return socket.emit("errorMessage",`You need ${costs[type]} gold for that purchase, but you only have ${p.gold}.`);
     p.gold -= costs[type];
     if (type==="infantry") p.reserve += 5;
     else p[type] += 1;
@@ -286,16 +294,17 @@ io.on("connection", socket => {
     const p=currentPlayer(room), t=room.territories[country];
     if (!t || t.owner!==p.name) return socket.emit("errorMessage","You can only build on your own territory.");
     if (type==="defence") {
-      if (p.gold<2 || t.defences>=3) return socket.emit("errorMessage","Need 2 gold and fewer than 3 defences.");
+      if (p.gold<2) return socket.emit("errorMessage",`A defence costs 2 gold, but you only have ${p.gold}.`);
+      if (t.defences>=3) return socket.emit("errorMessage",`${country} already has the maximum 3 defences allowed.`);
       p.gold-=2; t.defences++; addLog(room,`${p.name} built a defence in ${country}.`);
     } else {
       const cost=type==="city1"?8:15, key=type==="city1"?"smallCities":"largeCities";
       const countryQuota=t.gold>=2?2:1;
       const countryCityCount=(t.smallCities||0)+(t.largeCities||0);
       const playerCityCount=Object.values(room.territories).reduce((sum,x)=>sum+(x.owner===p.name?(x[key]||0):0),0);
-      if (p.gold<cost) return socket.emit("errorMessage","Not enough gold.");
-      if (playerCityCount>=5) return socket.emit("errorMessage",`You can build a maximum of 5 ${type==="city1"?"small":"large"} cities.`);
-      if (countryCityCount>=countryQuota) return socket.emit("errorMessage","This country has reached its city limit under the Constitution.");
+      if (p.gold<cost) return socket.emit("errorMessage",`That city costs ${cost} gold, but you only have ${p.gold}.`);
+      if (playerCityCount>=5) return socket.emit("errorMessage",`You already have 5 ${type==="city1"?"small":"large"} cities, which is the maximum allowed.`);
+      if (countryCityCount>=countryQuota) return socket.emit("errorMessage",`${country} can hold only ${countryQuota} city${countryQuota===1?"":"ies"} under the Constitution.`);
       p.gold-=cost;
       t[key]=(t[key]||0)+1;
       t.city=(t.smallCities||0)+(t.largeCities||0);
@@ -309,19 +318,29 @@ io.on("connection", socket => {
     if (!room) return;
     if (err) return socket.emit("errorMessage",err);
     const p=currentPlayer(room), t=room.territories[target];
-    if (!t || t.owner===p.name || p.attacked || p.reserve<=0) return socket.emit("errorMessage","This attack is not available.");
-    if (room.round<10 && t.owner) return socket.emit("errorMessage","Player-versus-player attacks begin in round 10.");
+    if (!t) return socket.emit("errorMessage","That target does not exist on the game map.");
+    if (t.owner===p.name) return socket.emit("errorMessage",`You already control ${target}; you cannot attack your own territory.`);
+    if (p.attacked) return socket.emit("errorMessage","You have already used your one attack this turn. End your turn to attack again.");
+    if (p.reserve<=0) return socket.emit("errorMessage","You have no reserve infantry left, so you cannot start an attack.");
+    if (room.round<10 && t.owner) return socket.emit("errorMessage",`${target} belongs to ${t.owner}. Player wars are locked until round 10; before then you may only attack neutral countries.`);
     // The browser supplies the map geometry calculation. Server validates that it is
-    // either a bordering route or an owned-territory ship route within 5,000 miles.
+    // either a bordering route or an owned-territory ship route within 4,000 miles.
     if (!access || (access.kind!=="border" && access.kind!=="ship"))
-      return socket.emit("errorMessage","Invalid attack route.");
-    if (access.kind==="ship" && (p.small+p.large<1 || access.distance>RANGE))
-      return socket.emit("errorMessage","Ship attack is out of range or no ship is available.");
+      return socket.emit("errorMessage","That move is not possible because the target is neither a bordering country nor a valid ship route from your territory.");
+    if (access.kind==="ship" && p.small+p.large<1)
+      return socket.emit("errorMessage","That country does not border your empire, and you do not own a ship to reach it.");
+    if (access.kind==="ship" && access.distance>RANGE)
+      return socket.emit("errorMessage",`That ship route is ${Math.round(access.distance)} miles, beyond the 4,000-mile maximum.`);
 
     p.attacked=true;
-    if (t.defences>0) {
-      if (Math.random()<0.5) { t.defences--; addLog(room,`HEADS — ${target}'s defence was destroyed.`); }
-      else { addLog(room,`TAILS — ${target}'s defence held. Attack ended.`); broadcast(room); return; }
+    while (t.defences>0) {
+      if (Math.random()<0.5) {
+        t.defences--;
+        addLog(room,`HEADS — ${target}'s defence was destroyed.`);
+      } else {
+        addLog(room,`TAILS — ${target}'s defence held. Attack ended.`);
+        broadcast(room); return;
+      }
     }
     while (p.reserve>0 && t.infantry>0) {
       if (Math.random()<0.5) { t.infantry=Math.max(0,t.infantry-10); }

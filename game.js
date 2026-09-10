@@ -9,12 +9,12 @@ function showRules(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobb
 function showName(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#nameScreen").classList.remove("hidden");$("#playerName").value=playerName;$("#playerName").focus();}
 function showGameChoice(){$("#chosenName").textContent=playerName;$("#nameScreen").classList.add("hidden");$("#joinScreen").classList.remove("hidden");}
 socket.on("connect",()=>{myId=socket.id});
-socket.on("errorMessage",m=>{$("#joinError").textContent=m; if(state) cmd("ACTION NOT AVAILABLE",m)});
+socket.on("errorMessage",m=>{$("#joinError").textContent=m; if(state) cmd("MOVE NOT POSSIBLE",m)});
 socket.on("chat",m=>{if(!state)state={};state.chat=state.chat||[];state.chat.push(m);renderChat();});
 function renderChat(){const box=$("#chatMessages");if(!box)return;const msgs=state?.chat||[];box.innerHTML=msgs.map(m=>`<div class="chatMsg"><b>${esc(m.name)}</b>: ${esc(m.text)}</div>`).join("");box.scrollTop=box.scrollHeight;}
 function sendChat(){const input=$("#chatInput"),text=input.value.trim();if(!text)return;socket.emit("chat",{code:roomCode,text});input.value="";}
 $("#chatSend").onclick=sendChat;$("#chatInput").addEventListener("keydown",e=>{if(e.key==="Enter")sendChat();});
-socket.on("joined",x=>{roomCode=x.code;$("#joinScreen").classList.add("hidden");if(x.single){$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden")}else{$("#lobby").classList.remove("hidden")}});
+socket.on("joined",x=>{roomCode=x.code;$("#joinScreen").classList.add("hidden");if(x.single){$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");showIntro(true)}else{$("#lobby").classList.remove("hidden");showIntro(false)}});
 socket.on("state",s=>{state=s; renderState()});
 
 $("#continueName").onclick=()=>{
@@ -36,6 +36,8 @@ $("#rules").onclick=()=>showRules();
 $("#backHome").onclick=()=>showHome();
 $("#nameBack").onclick=()=>showHome();
 $("#joinBack").onclick=()=>showHome();
+function showIntro(single){const ov=$("#gameIntro");if(!ov)return;$("#introTitle").textContent=single?"Your campaign begins":"Welcome to your game";$("#introText").textContent=single?"You are facing four AI commanders. Choose a legal capital, manage your 10 starting gold, and expand carefully. The first 10 rounds are for expansion; player wars begin from round 10.":"You have joined a live WMDG game. Choose a neutral capital when it is your turn, manage your gold and infantry, and remember that player-versus-player attacks begin in round 10.";ov.classList.remove("hidden")}
+$("#introClose").onclick=()=>$("#gameIntro").classList.add("hidden");
 if(playerName)$("#playerName").value=playerName;
 $("#start").onclick=()=>socket.emit("startGame",{code:roomCode,territories:initialTerritories(),adjacency:buildAdjacency()});
 function canon(n){return alias[n]||n}
@@ -96,7 +98,7 @@ function cmd(a,b){$("#command").textContent=a;$("#detail").textContent=b;$("#act
 function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();return}$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");let p=me(),c=current();$("#turn").textContent=`● ROUND ${state.round}\n${c?.name?.toUpperCase()||""}'S TURN`;if(p){
   $("#youAre").textContent=`YOU ARE: ${p.name.toUpperCase()}`;
   $("#stats").innerHTML=`You: <b>${p.name}</b><hr>Capital: ${p.capital||"Not chosen"}<br>Gold: ${p.gold}<br>Reserve infantry: ${p.reserve}<br>Ships: ${p.small} small, ${p.large} large<br>Attack used: ${p.attacked?"Yes":"No"}`;
-}$("#log").textContent=state.log.join("\n\n");renderChat();let selected=state.selectedBy?.[myId];if(state.phase==="capital"){
+}$("#log").textContent=state.log.join("\n\n");renderOtherPlayers();renderChat();let selected=state.selectedBy?.[myId];if(state.phase==="capital"){
   const chooser=state.players[state.capitalIndex];
   const position=(state.capitalIndex ?? 0)+1;
   const total=state.players.length;
@@ -107,11 +109,11 @@ function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();
   }else{
     cmd(`WAIT — ${chooser.name.toUpperCase()} MUST CHOOSE A CAPITAL`,`${chooser.name} is player ${position} of ${total}. They must click a neutral country and choose their capital before the next player can act.`);
   }
-}else if(c?.id===myId){if(selected){let t=state.territories[selected];cmd(`YOUR TURN — ${selected} SELECTED`,t.owner===p.name?"Choose a build command, another country, or end your turn.":"Choose Attack, or select another country.")}else cmd("YOUR TURN — YOU MUST MAKE A MOVE","Click one of your countries or a target country, use the Command Centre, or press End Turn when you are finished.")}else cmd(`WAIT — ${c?.name}'S TURN`,"You can watch the map, but only the active player can make moves.");draw()}
-function renderLobby(){$("#roomTitle").textContent=`ROOM ${state.code}`;$("#roomText").textContent=`Share this room code with friends. ${state.players.length}/8 players joined.`;$("#playerList").innerHTML=state.players.map((p,i)=>`<div class="card">${i+1}. ${p.name}${p.id===state.hostId?" — HOST":""}</div>`).join("");$("#start").style.display=state.hostId===myId?"block":"none";$("#start").disabled=state.players.length<2}
+}else if(c?.id===myId){if(selected){let t=state.territories[selected];cmd(`YOUR TURN — ${selected} SELECTED`,t.owner===p.name?"This is your territory. Choose a build command, select a different target, or end your turn.":(state.round<10&&t.owner?`You cannot attack ${selected} yet because it belongs to ${t.owner}. Player wars unlock at round 10.`:`Check the target's route, then choose Attack. You may attack only once per turn.`))}else cmd("YOUR TURN — YOU MUST MAKE A MOVE","Click one of your countries or a target country, use the Command Centre, or press End Turn when you are finished.")}else cmd(`WAIT — ${c?.name}'S TURN`,"You can watch the map, but only the active player can make moves.");draw()}
+function renderOtherPlayers(){const box=$("#otherPlayers");if(!box||!state)return;const mine=me();box.innerHTML=state.players.filter(x=>x.id!==myId).map(p=>{const countries=Object.values(state.territories||{}).filter(t=>t.owner===p.name).length;const inf=countries?Object.values(state.territories||{}).filter(t=>t.owner===p.name).reduce((n,t)=>n+(t.infantry||0),0):0;return `<div class="otherPlayer ${p.alive===false?"eliminated":""}"><div class="otherHead"><span class="dot" style="background:${p.color}"></span><b>${esc(p.name)}</b>${p.ai?'<span class="aiTag">AI</span>':''}</div><div class="otherStats"><span>${countries} countries</span><span>${inf} infantry</span><span>${p.gold} gold</span></div><div class="otherCapital">Capital: ${esc(p.capital||"Not chosen")}</div></div>`}).join("")||'<div class="emptyPlayers">No other players yet.</div>'}function renderLobby(){$("#roomTitle").textContent=`ROOM ${state.code}`;$("#roomText").textContent=`Share this room code with friends. ${state.players.length}/8 players joined.`;$("#playerList").innerHTML=state.players.map((p,i)=>`<div class="card">${i+1}. ${p.name}${p.id===state.hostId?" — HOST":""}</div>`).join("");$("#start").style.display=state.hostId===myId?"block":"none";$("#start").disabled=state.players.length<2}
 function select(country){if(!state)return;if(state.phase==="capital")socket.emit("chooseCapital",{code:roomCode,country});else socket.emit("selectCountry",{code:roomCode,country})}
 function buy(type){socket.emit("buy",{code:roomCode,type})}function modeSet(m){mode=m;cmd(`BUILD ${m==="defence"?"DEFENCE":m==="city1"?"SMALL CITY":"LARGE CITY"}`,"Click one of your own countries.");}
-function attack(){let target=state.selectedBy?.[myId];if(!target)return cmd("ATTACK — SELECT A COUNTRY","Click a target country first.");let access=attackAccess(target);if(!access.ok)return cmd("TARGET OUT OF RANGE",access.text);socket.emit("attack",{code:roomCode,target,access:{kind:access.kind,distance:access.distance||0}})}
+function attack(){let target=state.selectedBy?.[myId];if(!target)return cmd("MOVE NOT POSSIBLE","Select a target country first. The attack button needs a country to be selected on the map.");let access=attackAccess(target);if(!access.ok)return cmd("MOVE NOT POSSIBLE",access.text);socket.emit("attack",{code:roomCode,target,access:{kind:access.kind,distance:access.distance||0}})}
 function endTurn(){socket.emit("endTurn",{code:roomCode})}
 function points(n){return rings(features.find(f=>canon(f.name)===n).geometry).flat()}function centroid(n){let p=points(n);return[p.reduce((s,x)=>s+x[0],0)/p.length,p.reduce((s,x)=>s+x[1],0)/p.length]}
 function dist(a,b){let[x1,y1]=centroid(a),[x2,y2]=centroid(b),p1=y1*Math.PI/180,p2=y2*Math.PI/180,dp=(y2-y1)*Math.PI/180,dl=(x2-x1)*Math.PI/180,q=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(q)))}

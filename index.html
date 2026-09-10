@@ -1,18 +1,18 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>World Map Domination Multiplayer</title><link rel="stylesheet" href="style.css"></head>
+<title>World map domination game</title><link rel="stylesheet" href="style.css"></head>
 <body>
 <div id="homeScreen" class="screen homeScreen">
   <div class="homeCard">
     <div class="crest">WMDG</div>
-    <div class="eyebrow">WORLD MAP DOMINATION GAME</div>
-    <h1>WORLD MAP<br><span>DOMINATION</span></h1>
-    <p class="homeLead">Build your empire. Make alliances. Conquer the map.</p>
+    <div class="eyebrow">STRATEGY • EMPIRE • DOMINATION</div>
+    <h1>World map<br><span>domination game</span></h1>
+    <p class="homeLead">Claim your capital. Build your empire. Outthink everyone.</p>
     <div class="homeButtons">
       <button id="play" class="primaryBtn">PLAY</button>
       <button id="rules" class="secondaryBtn">VIEW RULES</button>
     </div>
-    <div class="homeNote">ONLINE MULTIPLAYER • 2–8 PLAYERS</div>
+    <div class="homeNote">ONLINE MULTIPLAYER • SINGLE PLAYER • 4 AI COMMANDERS</div>
   </div>
 </div>
 
@@ -65,11 +65,20 @@
   </div>
 </div>
 <div id="lobby" class="screen hidden"><div class="joinCard"><div class="eyebrow" id="lobbyEyebrow">MULTIPLAYER LOBBY</div><h1 id="roomTitle">GAME LOBBY</h1><p id="roomText"></p><div id="playerList"></div><button id="start" class="primaryBtn">START GAME</button></div></div>
+<div id="gameIntro" class="introOverlay hidden">
+  <div class="introCard">
+    <div class="eyebrow">WELCOME TO WMDG</div>
+    <h1 id="introTitle">Game briefing</h1>
+    <p id="introText">You start with 100 reserve infantry and 10 gold. Choose a legal capital, expand one territory per turn, and save your strength for the battles ahead.</p>
+    <div class="introRules"><span>100 infantry</span><span>10 gold</span><span>1 attack / turn</span><span>Wars from round 10</span></div>
+    <button id="introClose" class="primaryBtn">ENTER GAME</button>
+  </div>
+</div>
 <div id="app" class="hidden"><aside id="side"><div><h1>WORLD MAP</h1><div class="sub">ONLINE MULTIPLAYER • GRAND STRATEGY</div><div id="youAre" class="youAre"></div></div>
 <div class="card prompt"><div class="k">YOUR REQUIRED ACTION</div><div id="command"></div><div id="detail"></div></div>
 <div class="card"><div id="turn"></div><div id="stats"></div></div>
 <div class="card"><div class="k">COMMAND CENTRE</div><button onclick="buy('infantry')">Buy 5 Infantry — 1 Gold</button><button onclick="modeSet('defence')">Buy Defence — 2 Gold</button><button onclick="buy('small')">Small Ship — 1 Gold</button><button onclick="buy('large')">Large Ship — 2 Gold</button><button onclick="modeSet('city1')">Small City — 8 Gold</button><button onclick="modeSet('city2')">Large City — 15 Gold</button><button onclick="attack()">⚔ Attack Selected Country</button><button onclick="endTurn()">End Turn</button></div>
-<div class="card"><div class="k">LIVE BATTLE LOG</div><div id="log"></div></div><div class="card chatCard"><div class="k">PLAYER CHAT</div><div id="chatMessages"></div><div class="chatRow"><input id="chatInput" maxlength="180" placeholder="Message players..." autocomplete="off"><button id="chatSend">SEND</button></div></div></aside>
+<div class="card"><div class="k">LIVE BATTLE LOG</div><div id="log"></div></div></aside>
 <main id="mapbox"><svg id="map" viewBox="0 0 1200 700"></svg></main>
-<section id="actionbox"><div class="big-prompt"><div class="prompt-title">PLAYER ACTION REQUIRED</div><div class="big-command" id="actionCommand"></div><div class="big-detail" id="actionDetail"></div></div><div class="steps"><b>TURN GUIDE</b><br>Wait for your turn.<br>Read the action prompt.<br>Click a country or command.<br>In single player, four AI commanders take their turns automatically.</div></section></div>
+<section id="actionbox"><div class="big-prompt"><div class="prompt-title">PLAYER ACTION REQUIRED</div><div class="big-command" id="actionCommand"></div><div class="big-detail" id="actionDetail"></div></div><div class="card"><div class="k">OTHER PLAYERS</div><div id="otherPlayers"></div></div><div class="card chatCard"><div class="k">PLAYER CHAT</div><div id="chatMessages"></div><div class="chatRow"><input id="chatInput" maxlength="180" placeholder="Message players..." autocomplete="off"><button id="chatSend">SEND</button></div></div><div class="steps"><b>TURN GUIDE</b><br>Wait for your turn.<br>Read the action prompt.<br>Click a country or command.<br>In single player, four AI commanders take their turns automatically.</div></section></div>
 <div id="tip"></div><script src="/socket.io/socket.io.js"></script><script src="game.js"></script></body></html>
