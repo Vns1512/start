@@ -3,12 +3,15 @@ const alias={"United States of America":"USA","United Kingdom":"UK","Czechia":"C
 let socket=io(),state=null,roomCode=null,features=[],mode="normal",myId=null;
 const $=s=>document.querySelector(s);
 let playerName = localStorage.getItem("worldDominationPlayerName") || "";
+let analyticsVisitorId = localStorage.getItem("wmdgAnalyticsVisitorId");
+if(!analyticsVisitorId){ analyticsVisitorId = (crypto?.randomUUID ? crypto.randomUUID() : `v-${Date.now()}-${Math.random().toString(36).slice(2)}`); localStorage.setItem("wmdgAnalyticsVisitorId", analyticsVisitorId); }
 
 function showHome(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#homeScreen").classList.remove("hidden");}
 function showRules(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#rulesScreen").classList.remove("hidden");}
 function showName(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#nameScreen").classList.remove("hidden");$("#playerName").value=playerName;$("#playerName").focus();}
 function showGameChoice(){$("#chosenName").textContent=playerName;$("#nameScreen").classList.add("hidden");$("#joinScreen").classList.remove("hidden");}
-socket.on("connect",()=>{myId=socket.id});
+socket.on("connect",()=>{myId=socket.id; socket.emit("identifyAnalytics",analyticsVisitorId)});
+socket.on("analytics",a=>renderAnalytics(a));
 socket.on("errorMessage",m=>{$("#joinError").textContent=m; if(state) cmd("MOVE NOT POSSIBLE",m)});
 socket.on("chat",m=>{if(!state)state={};state.chat=state.chat||[];state.chat.push(m);renderChat();});
 function renderChat(){const box=$("#chatMessages");if(!box)return;const msgs=state?.chat||[];box.innerHTML=msgs.map(m=>`<div class="chatMsg"><b>${esc(m.name)}</b>: ${esc(m.text)}</div>`).join("");box.scrollTop=box.scrollHeight;}
@@ -95,10 +98,17 @@ function draw(){
   });
 }
 function cmd(a,b){$("#command").textContent=a;$("#detail").textContent=b;$("#actionCommand").textContent=a;$("#actionDetail").textContent=b}
+function renderAnalytics(a){
+  if(!a)return;
+  const set=(id,v)=>{const el=$(id);if(el)el.textContent=String(v??0)};
+  set("#onlineNow",a.onlineNow); set("#uniqueVisitors",a.uniqueVisitors); set("#gamesStarted",a.gamesStarted); set("#gamesCompleted",a.gamesCompleted);
+}
 function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();return}$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");let p=me(),c=current();$("#turn").textContent=`● ROUND ${state.round}\n${c?.name?.toUpperCase()||""}'S TURN`;if(p){
   $("#youAre").textContent=`YOU ARE: ${p.name.toUpperCase()}`;
   $("#stats").innerHTML=`You: <b>${p.name}</b><hr>Capital: ${p.capital||"Not chosen"}<br>Gold: ${p.gold}<br>Reserve infantry: ${p.reserve}<br>Ships: ${p.small} small, ${p.large} large<br>Attack used: ${p.attacked?"Yes":"No"}`;
-}$("#log").textContent=state.log.join("\n\n");renderOtherPlayers();renderTreaties();renderChat();renderMapIntel();let selected=state.selectedBy?.[myId];if(state.phase==="capital"){
+}$("#log").textContent=state.log.join("\n\n");renderOtherPlayers();renderTreaties();renderChat();renderMapIntel();renderAnalytics(state.analytics);let selected=state.selectedBy?.[myId];if(state.phase==="gameover"){
+  cmd("GAME OVER",state.winner?`🏆 ${esc(state.winner)} is the last empire standing.`:"The game has ended.");
+}else if(state.phase==="capital"){
   const chooser=state.players[state.capitalIndex];
   const position=(state.capitalIndex ?? 0)+1;
   const total=state.players.length;

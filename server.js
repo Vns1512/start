@@ -13,6 +13,24 @@ app.get("/", (req, res) => {
 });
 
 const rooms = new Map();
+const analytics = {
+  connected: 0,
+  totalConnections: 0,
+  uniqueVisitors: new Set(),
+  gamesStarted: 0,
+  gamesCompleted: 0
+};
+
+function analyticsView() {
+  return {
+    onlineNow: analytics.connected,
+    totalConnections: analytics.totalConnections,
+    uniqueVisitors: analytics.uniqueVisitors.size,
+    gamesStarted: analytics.gamesStarted,
+    gamesCompleted: analytics.gamesCompleted,
+    activeGames: [...rooms.values()].filter(r => r.phase !== "gameover").length
+  };
+}
 const COLORS = ["#ff5d73","#3b82f6","#22c55e","#fbbf24","#a855f7","#fb923c","#14b8a6","#ec4899"];
 const RANGE = 4000;
 
@@ -30,7 +48,7 @@ function roomView(room) {
     chat: room.chat || [],
     treaties: room.treaties || [],
     treatyOffers: room.treatyOffers || [],
-    territories: room.territories, selectedBy: room.selectedBy, log: room.log, singlePlayer: !!room.singlePlayer
+    territories: room.territories, selectedBy: room.selectedBy, log: room.log, singlePlayer: !!room.singlePlayer, analytics: analyticsView(), winner: room.winner || null
   };
 }
 function addLog(room, text) {
@@ -105,6 +123,17 @@ function eliminateIfCapitalLost(room, oldOwner, country) {
       if (t.owner === oldOwner && t.name !== country) t.owner = null;
     addLog(room, `${oldOwner}'s capital fell. They are eliminated.`);
   }
+}
+
+function checkGameOver(room) {
+  if (!room || room.phase === "gameover") return true;
+  const living = livingPlayers(room);
+  if (living.length > 1) return false;
+  room.phase = "gameover";
+  room.winner = living[0]?.name || null;
+  analytics.gamesCompleted++;
+  addLog(room, room.winner ? `🏆 ${room.winner} is the last empire standing. Game over!` : "Game over — there is no surviving empire.");
+  return true;
 }
 
 
@@ -195,6 +224,7 @@ function aiAttack(room,p) {
     applyCityTransferQuota(room,p.name,target);
     addLog(room, `★ ${p.name} captured ${target.name}! ★`);
     if (old) eliminateIfCapitalLost(room,old,target.name);
+    checkGameOver(room);
   } else addLog(room, `${p.name}'s attack on ${target.name} failed.`);
 }
 function aiAction(room,p) {
@@ -218,6 +248,7 @@ function runAI(room) {
   setTimeout(() => {
     if (!rooms.has(room.code) || room.phase !== "playing" || currentPlayer(room) !== p || !p.alive) return;
     aiAction(room,p);
+    if (room.phase === "gameover") { broadcast(room); return; }
     endTurn(room);
     broadcast(room);
     runAI(room);
@@ -225,6 +256,12 @@ function runAI(room) {
 }
 
 io.on("connection", socket => {
+  analytics.connected++;
+  analytics.totalConnections++;
+  socket.on("identifyAnalytics", visitorId => {
+    if (typeof visitorId === "string" && /^[a-zA-Z0-9_-]{8,80}$/.test(visitorId)) analytics.uniqueVisitors.add(visitorId);
+    socket.emit("analytics", analyticsView());
+  });
   socket.on("createRoom", ({name}) => {
     name = String(name||"Player").trim().slice(0,24) || "Player";
     const room = {
@@ -244,6 +281,7 @@ io.on("connection", socket => {
     const players = [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,smallCities:0,largeCities:0,ai:false}];
     aiNames.forEach((n,i)=>players.push({id:`ai-${i+1}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name:n,color:COLORS[i+1],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,ai:true}));
     const room = {code:code(),hostId:socket.id,phase:"capital",round:1,current:0,capitalIndex:0,players,territories:territories||{},adjacency:adjacency||{},selectedBy:{},chat:[],treaties:[],treatyOffers:[],turnSeq:0,log:["Single-player campaign started. You are facing four AI commanders."],singlePlayer:true};
+    analytics.gamesStarted++;
     rooms.set(room.code,room); socket.join(room.code); socket.emit("joined",{code:room.code,single:true});
     broadcast(room);
   });
@@ -272,6 +310,7 @@ io.on("connection", socket => {
     room.adjacency = adjacency || {};
     room.phase = "capital";
     room.capitalIndex = 0;
+    analytics.gamesStarted++;
     addLog(room, "Game started. Players are choosing capitals.");
     broadcast(room);
   });
@@ -428,6 +467,7 @@ io.on("connection", socket => {
       const old=t.owner; t.owner=p.name;
       addLog(room,`★ ${p.name} captured ${target}! ★`);
       if (old) eliminateIfCapitalLost(room,old,target);
+      checkGameOver(room);
     } else addLog(room,`${p.name}'s attack on ${target} failed.`);
     broadcast(room);
   });
@@ -452,6 +492,7 @@ io.on("connection", socket => {
   });
 
   socket.on("disconnect", () => {
+    analytics.connected = Math.max(0, analytics.connected - 1);
     for (const room of rooms.values()) {
       const p=player(room,socket.id);
       if (!p) continue;
