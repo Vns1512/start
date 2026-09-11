@@ -25,9 +25,11 @@ function code() {
 function roomView(room) {
   return {
     code: room.code, hostId: room.hostId, phase: room.phase,
-    round: room.round, current: room.current, capitalIndex: room.capitalIndex ?? null,
+    round: room.round, current: room.current, turnSeq: room.turnSeq || 0, capitalIndex: room.capitalIndex ?? null,
     players: room.players,
     chat: room.chat || [],
+    treaties: room.treaties || [],
+    treatyOffers: room.treatyOffers || [],
     territories: room.territories, selectedBy: room.selectedBy, log: room.log, singlePlayer: !!room.singlePlayer
   };
 }
@@ -58,6 +60,8 @@ function endTurn(room) {
   p.gold += income(room, p);
   p.attacked = false;
   room.selectedBy[p.id] = null;
+  room.turnSeq = (room.turnSeq || 0) + 1;
+  cleanupTreaties(room);
   let loops = 0;
   do {
     room.current = (room.current + 1) % room.players.length;
@@ -103,6 +107,33 @@ function eliminateIfCapitalLost(room, oldOwner, country) {
   }
 }
 
+
+function getTreaty(room, a, b) {
+  return (room.treaties || []).find(t => t.active && ((t.a === a && t.b === b) || (t.a === b && t.b === a)));
+}
+function treatyOffer(room, from, to) {
+  return (room.treatyOffers || []).find(o => o.from === from && o.to === to);
+}
+function treatyBlocksAttack(room, attacker, defender) {
+  const t = getTreaty(room, attacker, defender);
+  if (!t) return null;
+  if (t.breakNoticeBy && t.breakAtSeq != null && (room.turnSeq || 0) >= t.breakAtSeq && t.breakNoticeBy === attacker) return null;
+  return t;
+}
+function cleanupTreaties(room) {
+  room.treaties = (room.treaties || []).filter(t => {
+    if (!t.active) return false;
+    if (t.breakAtSeq != null && (room.turnSeq || 0) >= t.breakAtSeq && t.breakNoticeBy) {
+      addLog(room, `☮ Peace treaty between ${t.a} and ${t.b} has ended after the one-turn notice.`);
+      return false;
+    }
+    return true;
+  });
+}
+function makeTreaty(room, a, b, scope) {
+  room.treaties = room.treaties || [];
+  room.treaties.push({id:`t-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,a,b,scope:scope === 'wide' ? 'wide' : 'direct',active:true,createdRound:room.round,breakNoticeBy:null,breakAtSeq:null});
+}
 
 function aiPlayers() { return true; }
 function isAI(p) { return !!p && p.ai === true; }
@@ -199,7 +230,7 @@ io.on("connection", socket => {
     const room = {
       code: code(), hostId: socket.id, phase: "lobby", round: 1, current: 0,
       players: [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,smallCities:0,largeCities:0}],
-      territories: {}, selectedBy: {}, chat: [], log: ["Lobby created. Share the room code and wait for players."]
+      territories: {}, selectedBy: {}, chat: [], treaties: [], treatyOffers: [], turnSeq: 0, log: ["Lobby created. Share the room code and wait for players."]
     };
     rooms.set(room.code, room);
     socket.join(room.code);
@@ -212,7 +243,7 @@ io.on("connection", socket => {
     const aiNames = ["Atlas AI","Europa AI","Orion AI","Titan AI"];
     const players = [{id:socket.id,name,color:COLORS[0],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,smallCities:0,largeCities:0,ai:false}];
     aiNames.forEach((n,i)=>players.push({id:`ai-${i+1}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name:n,color:COLORS[i+1],gold:10,reserve:100,small:0,large:0,alive:true,attacked:false,capital:null,ai:true}));
-    const room = {code:code(),hostId:socket.id,phase:"capital",round:1,current:0,capitalIndex:0,players,territories:territories||{},adjacency:adjacency||{},selectedBy:{},chat:[],log:["Single-player campaign started. You are facing four AI commanders."],singlePlayer:true};
+    const room = {code:code(),hostId:socket.id,phase:"capital",round:1,current:0,capitalIndex:0,players,territories:territories||{},adjacency:adjacency||{},selectedBy:{},chat:[],treaties:[],treatyOffers:[],turnSeq:0,log:["Single-player campaign started. You are facing four AI commanders."],singlePlayer:true};
     rooms.set(room.code,room); socket.join(room.code); socket.emit("joined",{code:room.code,single:true});
     broadcast(room);
   });
@@ -313,6 +344,52 @@ io.on("connection", socket => {
     broadcast(room);
   });
 
+  socket.on("proposeTreaty", ({code, toId, scope}) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const from = player(room, socket.id);
+    const to = room.players.find(p => p.id === toId);
+    if (!from || !to || from.id === to.id) return socket.emit("errorMessage", "Choose another living player for the treaty.");
+    if (from.alive === false || to.alive === false) return socket.emit("errorMessage", "Eliminated players cannot make peace treaties.");
+    if (room.phase !== "playing") return socket.emit("errorMessage", "Peace treaties can be made once the game is underway.");
+    if (getTreaty(room, from.name, to.name)) return socket.emit("errorMessage", `You already have a peace treaty with ${to.name}.`);
+    if (treatyOffer(room, from.name, to.name)) return socket.emit("errorMessage", `A treaty offer to ${to.name} is already waiting for them.`);
+    room.treatyOffers = room.treatyOffers || [];
+    room.treatyOffers.push({id:`o-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,from:from.name,fromId:from.id,to:to.name,toId:to.id,scope:scope === "wide" ? "wide" : "direct",round:room.round});
+    addLog(room, `${from.name} proposed a peace treaty to ${to.name}.`);
+    broadcast(room);
+  });
+
+  socket.on("respondTreaty", ({code, offerId, accept}) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const me = player(room, socket.id);
+    const offer = (room.treatyOffers || []).find(o => o.id === offerId && o.toId === socket.id);
+    if (!me || !offer) return socket.emit("errorMessage", "That treaty offer is no longer available.");
+    room.treatyOffers = room.treatyOffers.filter(o => o.id !== offerId);
+    if (accept) {
+      if (getTreaty(room, offer.from, offer.to)) return socket.emit("errorMessage", "A peace treaty already exists between you.");
+      makeTreaty(room, offer.from, offer.to, offer.scope);
+      addLog(room, `☮ ${offer.from} and ${offer.to} agreed to a ${offer.scope === "wide" ? "wide" : "direct-attack"} peace treaty.`);
+    } else {
+      addLog(room, `${me.name} declined the peace treaty proposed by ${offer.from}.`);
+    }
+    broadcast(room);
+  });
+
+  socket.on("breakTreaty", ({code, treatyId}) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const me = player(room, socket.id);
+    const treaty = (room.treaties || []).find(t => t.id === treatyId && t.active && (t.a === me?.name || t.b === me?.name));
+    if (!me || !treaty) return socket.emit("errorMessage", "That peace treaty is no longer active.");
+    if (treaty.breakNoticeBy) return socket.emit("errorMessage", `A one-turn break notice has already been given by ${treaty.breakNoticeBy}.`);
+    treaty.breakNoticeBy = me.name;
+    treaty.breakAtSeq = (room.turnSeq || 0) + 2;
+    addLog(room, `⚠ ${me.name} gave ${t.a === me.name ? treaty.b : treaty.a} one-turn notice to end their peace treaty.`);
+    broadcast(room);
+  });
+
   socket.on("attack", ({code,target,access}) => {
     const room=rooms.get(code), err=room && requireTurn(socket,room);
     if (!room) return;
@@ -323,6 +400,7 @@ io.on("connection", socket => {
     if (p.attacked) return socket.emit("errorMessage","You have already used your one attack this turn. End your turn to attack again.");
     if (p.reserve<=0) return socket.emit("errorMessage","You have no reserve infantry left, so you cannot start an attack.");
     if (room.round<10 && t.owner) return socket.emit("errorMessage",`${target} belongs to ${t.owner}. Player wars are locked until round 10; before then you may only attack neutral countries.`);
+    if (t.owner) { const treaty = treatyBlocksAttack(room, p.name, t.owner); if (treaty) return socket.emit("errorMessage",`Peace treaty with ${t.owner} blocks this attack. A one-turn notice must be given before the treaty can end.`); }
     // The browser supplies the map geometry calculation. Server validates that it is
     // either a bordering route or an owned-territory ship route within 4,000 miles.
     if (!access || (access.kind!=="border" && access.kind!=="ship"))
