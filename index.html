@@ -11,8 +11,25 @@
     <div class="homeButtons">
       <button id="play" class="primaryBtn">PLAY</button>
       <button id="rules" class="secondaryBtn">VIEW RULES</button>
+      <button id="activity" class="secondaryBtn">WMDG ACTIVITY</button>
     </div>
     <div class="homeNote">ONLINE MULTIPLAYER • SINGLE PLAYER • 4 AI COMMANDERS</div>
+  </div>
+</div>
+
+<div id="activityScreen" class="screen hidden">
+  <div class="activityPage">
+    <div class="eyebrow">LIVE GAME STATISTICS</div>
+    <h1>WMDG ACTIVITY</h1>
+    <p class="activityIntro">See how many people are using the game and how many games have been played.</p>
+    <div class="activityBigGrid">
+      <div class="activityBigCard"><b id="homeOnlineNow">0</b><span>ONLINE NOW</span></div>
+      <div class="activityBigCard"><b id="homeUniqueVisitors">0</b><span>UNIQUE VISITORS</span></div>
+      <div class="activityBigCard"><b id="homeGamesStarted">0</b><span>GAMES STARTED</span></div>
+      <div class="activityBigCard"><b id="homeGamesCompleted">0</b><span>GAMES COMPLETED</span></div>
+    </div>
+    <div class="activityStatus"><span class="liveDot"></span><b>LIVE</b> — statistics update automatically while the server is running.</div>
+    <button id="activityBack" class="secondaryBtn activityBackBtn">BACK TO HOME</button>
   </div>
 </div>
 

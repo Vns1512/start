@@ -6,10 +6,13 @@ let playerName = localStorage.getItem("worldDominationPlayerName") || "";
 let analyticsVisitorId = localStorage.getItem("wmdgAnalyticsVisitorId");
 if(!analyticsVisitorId){ analyticsVisitorId = (crypto?.randomUUID ? crypto.randomUUID() : `v-${Date.now()}-${Math.random().toString(36).slice(2)}`); localStorage.setItem("wmdgAnalyticsVisitorId", analyticsVisitorId); }
 
-function showHome(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#homeScreen").classList.remove("hidden");}
-function showRules(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#rulesScreen").classList.remove("hidden");}
+function showHome(){["homeScreen","activityScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id)?.classList.add("hidden"));$("#homeScreen").classList.remove("hidden");}
+function showRules(){["homeScreen","activityScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id)?.classList.add("hidden"));$("#rulesScreen").classList.remove("hidden");}
+function showActivity(){["homeScreen","activityScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id)?.classList.add("hidden"));$("#activityScreen").classList.remove("hidden");}
 function showName(){["homeScreen","rulesScreen","nameScreen","joinScreen","lobby"].forEach(id=>$("#"+id).classList.add("hidden"));$("#nameScreen").classList.remove("hidden");$("#playerName").value=playerName;$("#playerName").focus();}
 function showGameChoice(){$("#chosenName").textContent=playerName;$("#nameScreen").classList.add("hidden");$("#joinScreen").classList.remove("hidden");}
+$("#activity").onclick=showActivity;
+$("#activityBack").onclick=showHome;
 socket.on("connect",()=>{myId=socket.id; socket.emit("identifyAnalytics",analyticsVisitorId)});
 socket.on("analytics",a=>renderAnalytics(a));
 socket.on("errorMessage",m=>{$("#joinError").textContent=m; if(state) cmd("MOVE NOT POSSIBLE",m)});
@@ -102,6 +105,7 @@ function renderAnalytics(a){
   if(!a)return;
   const set=(id,v)=>{const el=$(id);if(el)el.textContent=String(v??0)};
   set("#onlineNow",a.onlineNow); set("#uniqueVisitors",a.uniqueVisitors); set("#gamesStarted",a.gamesStarted); set("#gamesCompleted",a.gamesCompleted);
+  set("#homeOnlineNow",a.onlineNow); set("#homeUniqueVisitors",a.uniqueVisitors); set("#homeGamesStarted",a.gamesStarted); set("#homeGamesCompleted",a.gamesCompleted);
 }
 function renderState(){if(!state)return;if(state.phase==="lobby"){renderLobby();return}$("#lobby").classList.add("hidden");$("#app").classList.remove("hidden");let p=me(),c=current();$("#turn").textContent=`● ROUND ${state.round}\n${c?.name?.toUpperCase()||""}'S TURN`;if(p){
   $("#youAre").textContent=`YOU ARE: ${p.name.toUpperCase()}`;
